@@ -1,0 +1,7 @@
+/* AdminFrontend global styles */
+/* Tailwind CSS is loaded via CDN in index.html */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
