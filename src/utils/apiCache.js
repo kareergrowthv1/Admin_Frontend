@@ -21,7 +21,7 @@ function getCacheKey(config) {
 }
 
 function isStale(entry) {
-  return !entry || Date.now() - (entry.ts || 0) > CACHE_TTL_MS;
+  return Date.now() - entry.timestamp > 60000;
 }
 
 /**

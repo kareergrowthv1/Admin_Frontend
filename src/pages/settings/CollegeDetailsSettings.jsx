@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../../features/auth/authAPI';
 import { toast } from 'react-hot-toast';
 import Field from '../../components/form/Field';
+import { Save, GraduationCap } from 'lucide-react';
+import PermissionWrapper from '../../components/common/PermissionWrapper';
 
 const CollegeDetailsSettings = () => {
     const navigate = useNavigate();
@@ -71,63 +73,48 @@ const CollegeDetailsSettings = () => {
     if (loading) {
         return (
             <div className="flex items-center justify-center py-16">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#FF6B00] border-t-transparent" />
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-800">College Details</h2>
-                <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="px-6 py-2.5 text-xs font-bold rounded-lg bg-gradient-to-b from-[#FF6B00] to-[#FF4E00] text-white hover:brightness-110 shadow-lg shadow-orange-500/20 transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                    {saving ? (
-                        <>
-                            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                            </svg>
-                            Saving...
-                        </>
-                    ) : (
-                        <>
-                            Save College Details
-                            <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                            </svg>
-                        </>
-                    )}
-                </button>
-            </div>
-
-            <div className="space-y-6 pb-12">
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="space-y-2">
+            <div className="space-y-2">
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                     <Field label="College Name" id="collegeName" value={college.collegeName} onChange={setC('collegeName')} placeholder="eg. ABC Institute of Technology" required={true} />
                     <Field label="College Email" id="collegeEmail" type="email" value={college.collegeEmail} onChange={setC('collegeEmail')} placeholder="admin@college.edu" required={true} />
                 </div>
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                    <Field label="University" id="university" value={college.university} onChange={setC('university')} placeholder="eg. VTU, Anna University" required={true} />
-                    <Field label="Website URL" id="collegeWebsite" value={college.websiteUrl} onChange={setC('websiteUrl')} placeholder="https://college.edu" />
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <Field label="University" id="university" value={college.university} onChange={setC('university')} placeholder="eg. Visvesvaraya Technological University" required={true} />
+                    <Field label="Website URL" id="websiteUrl" value={college.websiteUrl} onChange={setC('websiteUrl')} placeholder="https://college.edu" />
                 </div>
-                <div className="pt-2">
-                    <div className="mb-6">
-                        <Field label="Address" id="cAddr" type="textarea" value={college.address} onChange={setC('address')} placeholder="Enter your address" required={true} />
-                    </div>
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                        <Field label="City" id="cCity" value={college.city} onChange={setC('city')} placeholder="Bangalore" required={true} />
-                        <Field label="State" id="cState" value={college.state} onChange={setC('state')} placeholder="Karnataka" required={true} />
-                        <Field label="Country" id="cCountry" value={college.country} onChange={setC('country')} placeholder="India" required={true} />
-                        <Field label="Pincode" id="cPin" value={college.pincode} onChange={setC('pincode')} placeholder="560001" required={true} />
-                    </div>
+                <Field label="Address" id="address" type="textarea" value={college.address} onChange={setC('address')} placeholder="Full address of the college…" required={true} />
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <Field label="City" id="city" value={college.city} onChange={setC('city')} placeholder="Bangalore" required={true} />
+                    <Field label="State" id="state" value={college.state} onChange={setC('state')} placeholder="Karnataka" required={true} />
+                </div>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <Field label="Country" id="country" value={college.country} onChange={setC('country')} placeholder="India" required={true} />
+                    <Field label="Pincode" id="pincode" value={college.pincode} onChange={setC('pincode')} placeholder="560001" required={true} />
                 </div>
                 <div className="pt-2">
                     <Field label="About Us" id="cAbout" type="textarea" value={college.aboutUs} onChange={setC('aboutUs')} placeholder="Brief description about your college…" />
                 </div>
             </div>
+
+            {/* Bottom Save Button */}
+            <PermissionWrapper feature="settings" permission="update">
+                <div className="flex justify-end border-t border-slate-100 pt-2">
+                    <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg shadow-md transition hover:bg-blue-700 disabled:opacity-50 text-xs font-bold shrink-0"
+                    >
+                        <Save size={14} /> {saving ? 'Saving...' : 'Save College Details'}
+                    </button>
+                </div>
+            </PermissionWrapper>
         </div>
     );
 };

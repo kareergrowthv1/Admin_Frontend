@@ -23,14 +23,30 @@ export const AUTH_KEYS = [
 /** Remove all auth data from localStorage so user is forced to login again. */
 export function clearAuthStorage() {
   clearApiCache();
-  AUTH_KEYS.forEach((key) => localStorage.removeItem(key));
-  // Clear any feature permission keys (e.g. dashboardPermissions, positionsPermissions)
-  const keysToRemove = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && key.endsWith('Permissions')) keysToRemove.push(key);
-  }
-  keysToRemove.forEach((key) => localStorage.removeItem(key));
+  
+  // Define keys to PRESERVE (Remember Me items)
+  const preserveKeys = [
+    'admin_trust',
+    'admin_email',
+    'admin_password',
+    'rememberEmail',
+    'rememberPassword'
+  ];
+
+  // Backup preserved values
+  const backup = {};
+  preserveKeys.forEach(key => {
+    const val = localStorage.getItem(key);
+    if (val) backup[key] = val;
+  });
+
+  // NUKE EVERYTHING
+  localStorage.clear();
+
+  // Restore preserved values
+  Object.keys(backup).forEach(key => {
+    localStorage.setItem(key, backup[key]);
+  });
 }
 
 /** Return true only if token and organizationId exist (minimal check). */

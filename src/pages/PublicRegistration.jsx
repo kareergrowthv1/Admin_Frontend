@@ -179,9 +179,9 @@ const PublicRegistration = () => {
 
     if (loadingLink) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-slate-50">
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
                     <p className="mt-4 text-slate-600">Loading...</p>
                 </div>
             </div>
@@ -190,7 +190,7 @@ const PublicRegistration = () => {
 
     if (!linkData) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-slate-50">
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50">
                 <div className="text-center bg-white p-8 rounded-xl shadow-lg max-w-md">
                     <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <svg className="w-8 h-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -209,19 +209,19 @@ const PublicRegistration = () => {
         <>
             <div className="flex min-h-screen font-['Inter',sans-serif]">
                 {/* LEFT PANEL: Position/Company Details */}
-                <div className="relative hidden lg:flex lg:w-[52%] flex-col justify-between overflow-hidden bg-gradient-to-br from-[#A63200] via-[#B83800] to-[#CC4E00] px-14 py-12 text-white">
+                <div className="relative hidden lg:flex lg:w-[52%] flex-col justify-between overflow-hidden bg-gradient-to-br from-[#0051A6] via-[#0058B8] to-[#006ACC] px-14 py-12 text-white">
                     {/* animated gradient orbs */}
                     <div className="pointer-events-none absolute inset-0 mix-blend-overlay opacity-60">
-                        <div className="absolute -top-20 -left-20 h-96 w-96 rounded-full bg-red-600/40 blur-[100px]" />
-                        <div className="absolute top-1/2 right-0 h-80 w-80 rounded-full bg-gradient-to-r from-red-500 to-amber-400/30 blur-[80px]" />
-                        <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-orange-600/40 blur-[90px]" />
+                        <div className="absolute -top-20 -left-20 h-96 w-96 rounded-full bg-blue-600/40 blur-[100px]" />
+                        <div className="absolute top-1/2 right-0 h-80 w-80 rounded-full bg-gradient-to-r from-blue-500 to-indigo-400/30 blur-[80px]" />
+                        <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-blue-600/40 blur-[90px]" />
                     </div>
                     {/* diagonal line pattern overlay */}
                     <div className="pointer-events-none absolute inset-0 opacity-15"
                         style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.8) 4px, rgba(255,255,255,0.8) 5px)' }} />
                     {/* top logo */}
                     <div className="relative z-10 flex items-center gap-3">
-                        <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/20 shadow-lg shadow-orange-900/20 text-sm font-extrabold backdrop-blur-md border border-white/20">
+                        <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/20 shadow-lg shadow-blue-900/20 text-sm font-extrabold backdrop-blur-md border border-white/20">
                             KG
                         </div>
                         <span className="text-sm font-semibold tracking-widest uppercase text-white/90">KareerGrowth</span>
@@ -245,6 +245,31 @@ const PublicRegistration = () => {
                             )}
                             <div><span className="font-semibold">Question Set:</span> {linkData.question_set_name || 'Standard Set'}</div>
                             <div><span className="font-semibold">Link Valid Till:</span> {linkData.expire_at ? new Date(linkData.expire_at).toLocaleString() : 'Not specified'}</div>
+                            
+                            {positionDetails?.jobDescription && (
+                                <div className="mt-4 pt-4 border-t border-white/20">
+                                    <span className="font-semibold block mb-1">Job Description:</span>
+                                    <div className="text-white/70 max-h-32 overflow-y-auto pr-2 text-xs leading-relaxed custom-scrollbar">
+                                        {positionDetails.jobDescription}
+                                    </div>
+                                </div>
+                            )}
+
+                            {positionDetails?.jobDescriptionDocumentPath && (
+                                <div className="mt-4">
+                                    <a
+                                        href={`${apiBaseUrl}/candidates/public-position/${positionId}/${organizationId}/job-description`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-xs font-semibold text-white transition-colors"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                        Download JD
+                                    </a>
+                                </div>
+                            )}
                         </div>
                     </div>
                     {/* bottom footer */}
@@ -261,8 +286,8 @@ const PublicRegistration = () => {
                     <div className="w-full max-w-4xl">
                         {/* mobile logo */}
                         <div className="mb-8 flex items-center gap-3 lg:hidden">
-                            <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-[#D94200] to-[#DD7000] text-xs font-extrabold text-white shadow-md">KG</div>
-                            <span className="text-sm font-semibold tracking-widest uppercase text-[#D94200]">KareerGrowth</span>
+                            <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-[#0051A6] to-[#0070DD] text-xs font-extrabold text-white shadow-md">KG</div>
+                            <span className="text-sm font-semibold tracking-widest uppercase text-[#0051A6]">KareerGrowth</span>
                         </div>
                         {/* heading */}
                         <div className="mb-8">
@@ -287,7 +312,7 @@ const PublicRegistration = () => {
                                         type="text"
                                         value={formData.candidate_name}
                                         onChange={(e) => setFormData({ ...formData, candidate_name: e.target.value })}
-                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all placeholder:text-slate-400"
+                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
                                         placeholder="Enter your full name"
                                         required
                                     />
@@ -302,7 +327,7 @@ const PublicRegistration = () => {
                                         type="email"
                                         value={formData.candidate_email}
                                         onChange={(e) => setFormData({ ...formData, candidate_email: e.target.value })}
-                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all placeholder:text-slate-400"
+                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
                                         placeholder="your.email@example.com"
                                         required
                                     />
@@ -317,7 +342,7 @@ const PublicRegistration = () => {
                                         <select
                                             value={formData.country_code}
                                             onChange={(e) => setFormData({ ...formData, country_code: e.target.value })}
-                                            className="w-24 px-2 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all bg-white"
+                                            className="w-24 px-2 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
                                         >
                                             <option value="+91">🇮🇳 +91</option>
                                             <option value="+1">🇺🇸 +1</option>
@@ -328,7 +353,7 @@ const PublicRegistration = () => {
                                             type="tel"
                                             value={formData.mobile_number}
                                             onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value.replace(/\D/g, '') })}
-                                            className="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all placeholder:text-slate-400"
+                                            className="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
                                             placeholder="10 digit mobile"
                                             maxLength="10"
                                             required
@@ -345,7 +370,7 @@ const PublicRegistration = () => {
                                         type="date"
                                         value={formData.birthdate}
                                         onChange={(e) => setFormData({ ...formData, birthdate: e.target.value })}
-                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                                         required
                                     />
                                 </div>
@@ -359,7 +384,7 @@ const PublicRegistration = () => {
                                         type="text"
                                         value={formData.register_no}
                                         onChange={(e) => setFormData({ ...formData, register_no: e.target.value })}
-                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all placeholder:text-slate-400"
+                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
                                         placeholder="Enter registration number"
                                         required
                                     />
@@ -374,7 +399,7 @@ const PublicRegistration = () => {
                                         type="text"
                                         value={formData.department}
                                         onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all placeholder:text-slate-400"
+                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
                                         placeholder="Enter your department"
                                         required
                                     />
@@ -391,7 +416,7 @@ const PublicRegistration = () => {
                                         max="12"
                                         value={formData.semester}
                                         onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
-                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all placeholder:text-slate-400"
+                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
                                         placeholder="Current semester"
                                         required
                                     />
@@ -406,7 +431,7 @@ const PublicRegistration = () => {
                                         type="text"
                                         value={formData.location}
                                         onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all placeholder:text-slate-400"
+                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
                                         placeholder="City, Province"
                                         required
                                     />
@@ -420,7 +445,7 @@ const PublicRegistration = () => {
                                     <textarea
                                         value={formData.address}
                                         onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all resize-none placeholder:text-slate-400"
+                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none placeholder:text-slate-400"
                                         placeholder="Enter your complete address"
                                         rows="2"
                                         required
@@ -437,7 +462,7 @@ const PublicRegistration = () => {
                                             type="file"
                                             onChange={handleFileChange}
                                             accept=".pdf,.docx"
-                                            className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all file:mr-4 file:py-1.5 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 cursor-pointer"
+                                            className="w-full px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all file:mr-4 file:py-1.5 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
                                             required
                                         />
                                     </div>
@@ -458,7 +483,7 @@ const PublicRegistration = () => {
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="relative w-full overflow-hidden rounded-full bg-gradient-to-b from-[#FF6B00] to-[#FF4E00] py-3.5 text-sm font-semibold text-white shadow-lg shadow-orange-500/30 ring-1 ring-inset ring-white/20 transition hover:-translate-y-0.5 hover:shadow-orange-500/40 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
+                                    className="relative w-full overflow-hidden rounded-full bg-gradient-to-b from-blue-600 to-blue-700 py-3.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/30 ring-1 ring-inset ring-white/20 transition hover:-translate-y-0.5 hover:shadow-blue-500/40 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                     {loading ? (
                                         <span className="flex items-center justify-center gap-2">

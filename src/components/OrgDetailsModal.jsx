@@ -48,7 +48,7 @@ const OrgDetailsModal = ({ isCollege }) => {
                     <div className="mt-8 flex justify-end">
                         <button
                             type="button"
-                            className="inline-flex justify-center rounded-lg border border-transparent px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-sm focus:outline-none transition-all bg-black hover:bg-slate-800"
+                            className="inline-flex justify-center rounded-lg border border-transparent px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-sm focus:outline-none transition-all bg-blue-600 hover:bg-blue-700"
                             onClick={() => navigate(navPath)}
                         >
                             {confirmLabel}
