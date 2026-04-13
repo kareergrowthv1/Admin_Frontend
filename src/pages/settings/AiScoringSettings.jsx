@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { authAPI } from '../../features/auth/authAPI';
 import { toast } from 'react-hot-toast';
 import Field from '../../components/form/Field';
+import { Save, Bot } from 'lucide-react';
+import PermissionWrapper from '../../components/common/PermissionWrapper';
 
 const DEFAULT_STATE = {
     resume: {
@@ -114,7 +116,7 @@ const AiScoringSettings = () => {
     if (loading) {
         return (
             <div className="flex items-center justify-center py-16">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#FF6B00] border-t-transparent" />
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
             </div>
         );
     }
@@ -124,34 +126,8 @@ const AiScoringSettings = () => {
     const total = (w.skills || 0) + (w.experience || 0) + (w.education || 0) + (w.certifications || 0) + (w.projects || 0);
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-800">AI Scoring</h2>
-                <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="px-6 py-2.5 text-xs font-bold rounded-lg bg-gradient-to-b from-[#FF6B00] to-[#FF4E00] text-white hover:brightness-110 shadow-lg shadow-orange-500/20 transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                    {saving ? (
-                        <>
-                            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                            </svg>
-                            Saving...
-                        </>
-                    ) : (
-                        <>
-                            Save AI Scoring
-                            <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                            </svg>
-                        </>
-                    )}
-                </button>
-            </div>
-
-            <div className="space-y-6 pb-12">
+        <div className="space-y-2">
+            <div className="space-y-2">
                 {/* Resume Score Weightage */}
                 <div className="p-4 bg-white rounded-xl border border-slate-200">
                     <h3 className="text-sm font-bold text-slate-800 mb-2">Resume Score Weightage</h3>
@@ -168,7 +144,7 @@ const AiScoringSettings = () => {
                 {/* Resume Rejection Score: below this = rejected, >= this = invited */}
                 <div className="p-4 bg-white rounded-xl border border-slate-200">
                     <h3 className="text-sm font-bold text-slate-800 mb-2">Resume Rejection Score</h3>
-                    <p className="text-xs text-slate-500 mb-3">Score &lt; threshold = Rejected; Score &ge; threshold = Invited</p>
+
                     <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                         <Field label="Minimum score to invite (&ge;)" id="thresholdNotSelected" type="number" value={minInviteScore} onChange={setResumeRejectionMinScore} placeholder="50" />
                     </div>
@@ -194,6 +170,19 @@ const AiScoringSettings = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Bottom Save Button */}
+            <PermissionWrapper feature="settings" permission="update">
+                <div className="flex justify-end border-t border-slate-100 pt-2">
+                    <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg shadow-md transition hover:bg-blue-700 disabled:opacity-50 text-xs font-bold shrink-0"
+                    >
+                        <Save size={14} /> {saving ? 'Saving...' : 'Save AI Scoring'}
+                    </button>
+                </div>
+            </PermissionWrapper>
         </div>
     );
 };

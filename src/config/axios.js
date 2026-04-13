@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { clearAuthStorage } from '../utils/authStorage';
-import { installGetCache } from '../utils/apiCache';
+import { installGetCache, clearApiCache } from '../utils/apiCache';
 
 const instance = axios.create({
   baseURL: import.meta.env.VITE_ADMIN_API_URL,
@@ -10,6 +10,15 @@ const instance = axios.create({
 
 // GET deduplication + cache: same request once; cache 1 min so revisiting page doesn't call API again
 installGetCache(instance);
+
+// Clear cache on any POST/PUT/DELETE to ensure the next GET fetch sees fresh data
+instance.interceptors.request.use((config) => {
+  const method = (config.method || 'get').toLowerCase();
+  if (['post', 'put', 'delete', 'patch'].includes(method)) {
+    clearApiCache();
+  }
+  return config;
+});
 
 // Request interceptor to add Authorization header
 instance.interceptors.request.use(

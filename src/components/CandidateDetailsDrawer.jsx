@@ -1,6 +1,43 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import axios from '../config/axios';
+import { 
+    Mail, Phone, MapPin, Calendar, Hash, User, Briefcase, 
+    Download, Eye, FileText, CheckCircle2, Clock, Timer,
+    ArrowRight, Star, ExternalLink, Globe, Trash2,
+    Database, Shield, Zap, Activity
+} from 'lucide-react';
+
+const getStatusStyles = (status) => {
+    const styles = {
+        'INVITED': 'bg-purple-50 text-purple-600 border-purple-200',
+        'MANUALLY_INVITED': 'bg-cyan-50 text-cyan-400 border-cyan-200',
+        'RESUME_REJECTED': 'bg-red-50 text-red-600 border-red-200',
+        'LINK_EXPIRED': 'bg-orange-50 text-orange-500 border-orange-200',
+        'EXPIRED': 'bg-orange-50 text-orange-500 border-orange-200',
+        'RECOMMENDED': 'bg-emerald-50 text-emerald-600 border-emerald-100',
+        'NOT_RECOMMENDED': 'bg-rose-50 text-rose-600 border-rose-100',
+        'CAUTIOUSLY_RECOMMENDED': 'bg-amber-50 text-amber-600 border-amber-100',
+        'TEST_STARTED': 'bg-blue-50 text-blue-600 border-blue-100',
+        'IN_PROGRESS': 'bg-sky-50 text-sky-600 border-sky-100',
+        'TEST_COMPLETED': 'bg-sky-50 text-sky-600 border-sky-100',
+        'UNATTENDED': 'bg-slate-50 text-slate-500 border-slate-100',
+        'NETWORK_DISCONNECTED': 'bg-amber-50 text-amber-600 border-amber-100',
+        'ROUND1': 'bg-purple-50 text-purple-600 border-purple-100',
+        'ROUND2': 'bg-purple-50 text-purple-600 border-purple-100',
+        'ROUND3': 'bg-purple-50 text-purple-600 border-purple-100',
+        'ROUND4': 'bg-purple-50 text-purple-600 border-purple-100',
+        'NETWORK_ISSUE': 'bg-amber-50 text-amber-600 border-amber-100'
+    };
+    return styles[status] || 'bg-slate-50 text-slate-500 border-slate-100';
+};
+
+const formatStatus = (status) => {
+    if (!status) return 'N/A';
+    if (status === 'ALL') return 'All';
+    if (status.startsWith('ROUND')) return `Round ${status.replace('ROUND', '')}`;
+    return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+};
 
 const CandidateDetailsDrawer = ({ isOpen, onClose, candidate: passedCandidate, organizationId: propOrgId }) => {
     const [activeTab, setActiveTab] = useState('Contact Details');
@@ -10,6 +47,8 @@ const CandidateDetailsDrawer = ({ isOpen, onClose, candidate: passedCandidate, o
     const [selectedPositionIndex, setSelectedPositionIndex] = useState(0);
     const [loading, setLoading] = useState(false);
     const [assessmentSummary, setAssessmentSummary] = useState(null);
+    const [creditsInfo, setCreditsInfo] = useState(null);
+    const [loadingCredits, setLoadingCredits] = useState(false);
 
     const organizationId = propOrgId || localStorage.getItem('organizationId') || (typeof passedCandidate?.organizationId === 'string' ? passedCandidate.organizationId : null);
 
@@ -102,9 +141,23 @@ const CandidateDetailsDrawer = ({ isOpen, onClose, candidate: passedCandidate, o
         }).catch(() => setAssessmentSummary(null));
     }, [candidateId, selectedPosition?.positionId]);
 
+    // Fetch credits info
+    useEffect(() => {
+        if (!isOpen || !candidateId) return;
+        
+        setLoadingCredits(true);
+        axios.get(`/candidates/${candidateId}/credits`)
+            .then(r => {
+                if (r.data?.success) setCreditsInfo(r.data.data);
+                else setCreditsInfo(null);
+            })
+            .catch(() => setCreditsInfo(null))
+            .finally(() => setLoadingCredits(false));
+    }, [isOpen, candidateId]);
+
     if (!isOpen) return null;
 
-    const tabs = ['Contact Details', 'Work History', 'Skills', 'Test Results'];
+    const tabs = ['Contact Details', 'Work History', 'Skills', 'Test Results', 'Credits'];
 
     const summary = assessmentSummary;
     const timelineItems = [
@@ -123,7 +176,7 @@ const CandidateDetailsDrawer = ({ isOpen, onClose, candidate: passedCandidate, o
             />
 
             {/* Drawer Content */}
-            <div className="relative w-full max-w-5xl bg-[#F8F9FB] shadow-2xl flex flex-col h-full overflow-hidden pointer-events-auto rounded-l-[40px] animate-in slide-in-from-right duration-300">
+            <div className="relative w-full max-w-5xl bg-[#F8F9FB] shadow-2xl flex flex-col h-full overflow-hidden pointer-events-auto rounded-l-2xl animate-in slide-in-from-right duration-300">
                 {/* Header */}
                 <div className="bg-white px-8 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
                     <div>
@@ -139,10 +192,10 @@ const CandidateDetailsDrawer = ({ isOpen, onClose, candidate: passedCandidate, o
                 </div>
 
                 {/* Main Body */}
-                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 no-scrollbar">
+                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 no-scrollbar">
                     {loading && (
-                        <div className="flex items-center justify-center py-12">
-                            <div className="animate-spin w-8 h-8 border-2 border-[#FF6B00] border-t-transparent rounded-full" />
+                        <div className="flex items-center justify-center py-20">
+                            <div className="animate-spin w-10 h-10 border-2 border-blue-600 border-t-transparent rounded-full" />
                         </div>
                     )}
                     {!loading && (
@@ -150,86 +203,122 @@ const CandidateDetailsDrawer = ({ isOpen, onClose, candidate: passedCandidate, o
 
                         {/* ROW 1 – Profile Card (col 8) */}
                         <div className="col-span-8">
-                            {/* Profile Card */}
-                            <div className="bg-white rounded-[24px] border border-slate-100 p-5 shadow-sm h-full flex flex-col justify-between">
-                                <div className="flex items-center gap-5 mb-3">
-                                    <div className="w-20 h-20 rounded-full bg-orange-50 p-1 shadow-sm shrink-0">
-                                        <div className="w-full h-full rounded-full bg-slate-100 border border-orange-100 overflow-hidden">
+                            <div className="bg-white rounded-[18px] border border-slate-100 p-5 shadow-sm h-full flex flex-col">
+                                <div className="flex items-center gap-5 mb-4">
+                                    <div className="w-20 h-20 rounded-full bg-blue-50 p-1 shadow-sm shrink-0">
+                                        <div className="w-full h-full rounded-full bg-slate-100 border-2 border-white overflow-hidden shadow-inner">
                                             <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${candidateName || 'Alex'}`} alt={candidateName} className="w-full h-full object-cover" />
                                         </div>
                                     </div>
-                                    <div className="flex flex-col gap-2 pt-1">
-                                        <h3 className="text-xl font-bold text-slate-900 leading-none">{candidateName}</h3>
-                                        {(candidate.isTopTalent || selectedPosition?.resumeMatchScore >= 70) && (
-                                            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100/60 border border-emerald-100 text-[9px] font-bold text-emerald-600 uppercase tracking-widest w-fit">
-                                                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                                                TOP TALENT
+                                    <div className="flex flex-col gap-2">
+                                        <h3 className="text-xl font-black text-slate-900 leading-tight tracking-tight">{candidateName}</h3>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            {(candidate.isTopTalent || selectedPosition?.resumeMatchScore >= 70) && (
+                                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-100 text-[9px] font-bold text-emerald-600 uppercase tracking-widest shadow-sm">
+                                                    <Star size={9} className="fill-emerald-500" />
+                                                    TOP TALENT
+                                                </span>
+                                            )}
+                                            <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-500 text-[9px] font-bold uppercase tracking-widest border border-slate-200">
+                                                {candidateCode}
                                             </span>
-                                        )}
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Reg / ID badges below the avatar+name row */}
-                                <div className="flex items-center gap-2 flex-wrap mb-4">
-                                    <div className="flex items-center gap-1.5 text-[11px] font-normal text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
-                                        <span className="font-semibold text-slate-400">Reg:</span>
-                                        <span className="text-slate-700 font-medium">{candidateCode}</span>
-                                    </div>
-                                    {candidateId && (
-                                        <div className="flex items-center gap-1.5 text-[11px] font-normal text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
-                                            <span className="font-semibold text-slate-400">ID:</span>
-                                            <span className="text-slate-700 font-medium">{candidateId}</span>
-                                        </div>
-                                    )}
-                                    {candidate.interestedPosition && (
-                                        <div className="flex items-center gap-1.5 text-[11px] font-normal text-[#FF6B00] bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-100">
-                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                                            <span className="font-medium">{candidate.interestedPosition}</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Quick Stats Grid */}
-                                <div className="grid grid-cols-3 gap-0 border border-slate-200 rounded-[16px] overflow-hidden bg-slate-50/50 shadow-[0_0_8px_2px_rgba(0,0,0,0.04)] mb-3">
+                                {/* Quick Stats Grid - Compact */}
+                                <div className="grid grid-cols-3 gap-0 border border-slate-100 rounded-[18px] overflow-hidden bg-slate-50/50 mb-4">
                                     {[
-                                        { label: 'Department', value: candidate.department ?? '—' },
-                                        { label: 'Semester', value: candidate.semester != null ? (Number(candidate.semester) ? `Sem ${candidate.semester}` : candidate.semester) : '—' },
-                                        { label: 'Resume Score', value: selectedPosition?.resumeMatchScore ?? candidate.resumeMatchScore ?? '—' }
+                                        { label: 'Department', value: candidate.department ?? 'N/A', icon: Briefcase },
+                                        { label: 'Semester', value: candidate.semester != null ? (Number(candidate.semester) ? `Sem ${candidate.semester}` : candidate.semester) : 'N/A', icon: User },
+                                        { label: 'Match Score', value: selectedPosition?.resumeMatchScore ?? candidate.resumeMatchScore ?? 'N/A', icon: Star }
                                     ].map((stat, i) => (
-                                        <div key={i} className={`p-3 text-center flex flex-col items-center justify-center border-r last:border-0 border-slate-100 transition-colors`}>
-                                            <span className="text-[14px] font-normal text-slate-800 leading-tight">{stat.value}</span>
-                                            <p className="text-[10px] text-slate-400 font-normal uppercase mt-1 tracking-widest whitespace-nowrap">{stat.label}</p>
+                                        <div key={i} className={`p-3 text-center flex flex-col items-center justify-center border-r last:border-0 border-slate-100`}>
+                                            <div className="flex items-center gap-1 mb-0.5">
+                                                <stat.icon size={11} className="text-slate-400" />
+                                                <span className="text-[14px] font-bold text-slate-800">{stat.value}</span>
+                                            </div>
+                                            <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">{stat.label}</p>
                                         </div>
                                     ))}
                                 </div>
 
-                                {/* Resume Action Bar */}
-                                <button className="w-full flex items-center justify-between p-4 bg-white border border-slate-200 rounded-[18px] hover:border-slate-300 transition-all group shadow-[0_0_8px_2px_rgba(0,0,0,0.04)]">
-                                    <div className="flex items-center gap-4">
-                                        <div className="p-2 text-red-500 rounded-xl transition-all">
-                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                {/* Enhanced Resume Component */}
+                                <div className="bg-white border border-slate-200 rounded-[20px] p-3.5 flex items-center justify-between group hover:border-blue-200 transition-all shadow-sm">
+                                    <div className="flex items-center gap-4 min-w-0">
+                                        <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-500 shrink-0">
+                                            <FileText size={20} />
                                         </div>
-                                        <span className="text-xs font-normal text-black underline underline-offset-4 decoration-slate-200 group-hover:decoration-red-200">View CV/Resume</span>
+                                        <div className="min-w-0 pr-4 border-r border-slate-100 mr-2">
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Resume File</p>
+                                            <button 
+                                                onClick={() => {
+                                                    const path = candidate.resumeStoragePath || candidate.resume_url;
+                                                    if (path) window.open(`${axios.defaults.baseURL}/candidates/resume/view?path=${encodeURIComponent(path)}`, '_blank');
+                                                    else toast.error('Resume path not found');
+                                                }}
+                                                className="text-[13px] font-bold text-slate-900 border-b border-dashed border-slate-300 hover:border-blue-500 hover:text-blue-600 truncate max-w-[180px] transition-all"
+                                                title="View Resume"
+                                            >
+                                                {candidate.resumeFilename || candidate.resume_filename || 'resume.pdf'}
+                                            </button>
+                                        </div>
+                                        <div className="flex items-center gap-5">
+                                            <div className="flex flex-col">
+                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5 whitespace-nowrap">File Type</p>
+                                                <p className="text-[10px] font-bold text-slate-600 uppercase">PDF / DOCX</p>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5 whitespace-nowrap">Source</p>
+                                                <p className="text-[10px] font-bold text-blue-600 uppercase">Uploaded</p>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <svg className="w-4 h-4 text-slate-300 group-hover:text-slate-500 group-hover:translate-x-1 transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
-                                </button>
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={() => {
+                                                const path = candidate.resumeStoragePath || candidate.resume_url;
+                                                const name = candidate.resumeFilename || candidate.resume_filename || 'resume.pdf';
+                                                if (path) {
+                                                    axios.get('/candidates/resume/download', { params: { path }, responseType: 'blob' })
+                                                        .then(res => {
+                                                            const url = window.URL.createObjectURL(new Blob([res.data]));
+                                                            const link = document.createElement('a');
+                                                            link.href = url;
+                                                            link.setAttribute('download', name);
+                                                            document.body.appendChild(link);
+                                                            link.click();
+                                                            link.remove();
+                                                        }).catch(() => toast.error('Download failed'));
+                                                } else toast.error('Resume path not found');
+                                            }}
+                                            className="p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-all shadow-sm"
+                                            title="Download Resume"
+                                        >
+                                            <Download size={16} />
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
                         {/* ROW 1 – Stages Timeline (col 4) */}
                         <div className="col-span-4">
-                            <div className="bg-white rounded-[24px] border border-slate-100 p-5 shadow-sm h-full flex flex-col">
-                                <h4 className="text-[15px] font-bold text-slate-800 tracking-tight mb-3">Stages</h4>
+                            <div className="bg-white rounded-[18px] border border-slate-100 p-5 shadow-sm h-full flex flex-col">
+                                <h4 className="text-[16px] font-bold text-slate-800 tracking-tight mb-3.5 flex items-center gap-2">
+                                    <Clock size={16} className="text-blue-600" />
+                                    Stages
+                                </h4>
 
-                                {/* Position Selection Dropdown – latest first */}
-                                <div className="relative mb-3">
+                                {/* Position Selection Dropdown */}
+                                <div className="relative mb-4">
                                     <select
                                         value={selectedPositionIndex}
                                         onChange={(e) => setSelectedPositionIndex(Number(e.target.value))}
-                                        className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 pr-10 text-xs font-normal text-black outline-none hover:border-orange-200 focus:border-orange-400 focus:ring-1 focus:ring-orange-50 transition-all cursor-pointer"
+                                        className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 pr-10 text-[10px] font-bold text-slate-700 outline-none hover:border-blue-200 focus:border-blue-400 focus:ring-4 focus:ring-blue-50/50 transition-all cursor-pointer shadow-sm uppercase tracking-wide"
                                     >
                                         {positions.length === 0 && (
-                                            <option value={0}>No positions</option>
+                                            <option value={0}>No active positions</option>
                                         )}
                                         {positions.map((pos, idx) => (
                                             <option key={pos.positionCandidateId || idx} value={idx}>
@@ -238,35 +327,31 @@ const CandidateDetailsDrawer = ({ isOpen, onClose, candidate: passedCandidate, o
                                         ))}
                                     </select>
                                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
-                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                        <ArrowRight size={14} className="rotate-90" />
                                     </div>
                                 </div>
 
-                                <div className="space-y-4 relative flex-1">
-                                    <div className="absolute left-[15px] top-4 bottom-6 w-[2px] bg-slate-100/80" />
+                                <div className="space-y-5 relative flex-1">
+                                    <div className="absolute left-[15px] top-4 bottom-6 w-[2px] bg-slate-100" />
                                     {timelineItems.map((item, idx) => (
-                                        <div key={idx} className="flex gap-4 relative group z-10 items-center">
-                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-500 border-emerald-100' :
-                                                item.status === 'pending' ? 'bg-orange-50 text-[#FF6B00] border-orange-100' :
-                                                    'bg-slate-50 text-slate-300 border-slate-100'
+                                        <div key={idx} className="flex gap-4 relative group z-10 items-start">
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 transition-all ${item.status === 'completed' ? 'bg-emerald-50 text-emerald-500 border-emerald-100 shadow-sm' :
+                                                item.status === 'pending' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                                                    'bg-white text-slate-200 border-slate-100'
                                                 }`}>
-                                                {item.status === 'pending' ? (
-                                                    <svg className="w-[16px] h-[16px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                                    </svg>
-                                                ) : item.status === 'completed' ? (
-                                                    <svg className="w-[18px] h-[18px]" viewBox="0 0 20 20" fill="currentColor">
-                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                                    </svg>
+                                                {item.status === 'completed' ? (
+                                                    <CheckCircle2 size={15} />
+                                                ) : item.status === 'pending' ? (
+                                                    <Timer size={15} className="animate-pulse" />
                                                 ) : (
-                                                    <svg className="w-[18px] h-[18px] opacity-50" viewBox="0 0 20 20" fill="currentColor">
-                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                                    </svg>
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-200" />
                                                 )}
                                             </div>
-                                            <div>
-                                                <p className="text-[13px] font-normal text-slate-700 leading-none mb-1.5">{item.label}</p>
-                                                <p className="text-[11px] text-slate-500 font-normal leading-none">{item.time}</p>
+                                            <div className="pt-1">
+                                                <p className="text-[12px] font-bold text-slate-700 leading-none mb-1.5">{item.label}</p>
+                                                <p className={`text-[9px] font-bold uppercase tracking-wider leading-none ${item.status === 'completed' ? 'text-emerald-500' : item.status === 'pending' ? 'text-blue-500' : 'text-slate-400'}`}>
+                                                    {item.time}
+                                                </p>
                                             </div>
                                         </div>
                                     ))}
@@ -274,129 +359,269 @@ const CandidateDetailsDrawer = ({ isOpen, onClose, candidate: passedCandidate, o
                             </div>
                         </div>
 
-                        {/* ROW 2 – Position Details (col 8) – dynamic from selected position */}
-                        <div className="col-span-8">
-                            <div className="bg-white rounded-[24px] border border-slate-100 p-5 shadow-sm h-full flex flex-col">
-                                <h4 className="text-[15px] font-bold text-slate-800 tracking-tight mb-4">Position Details</h4>
-                                <div className="space-y-4 flex-1">
+                        {/* ROW 2 – Position Summary (col 4) & Tabs (col 8) */}
+                        <div className="col-span-4">
+                            <div className="bg-white rounded-[18px] border border-slate-100 p-5 shadow-sm h-full flex flex-col">
+                                <h4 className="text-[16px] font-bold text-slate-800 tracking-tight mb-4 flex items-center gap-2">
+                                    <Briefcase size={15} className="text-blue-600" />
+                                    Position Summary
+                                </h4>
+                                <div className="space-y-5 flex-1">
                                     {selectedPosition ? (
                                         <>
-                                            <div className="flex flex-col gap-1.5">
-                                                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Position</span>
-                                                <span className="text-[13px] font-semibold text-black">{positionTitle} {selectedPosition.domainType ? `(${selectedPosition.domainType})` : ''}</span>
-                                                <p className="text-[11px] text-slate-500 font-normal">#{positionCode}</p>
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-[12px] text-slate-900 font-bold">Applied Position</span>
+                                                <span className="text-[11px] font-normal text-slate-500 leading-tight">{positionTitle}</span>
+                                                <p className="text-[9px] font-medium text-slate-400">#{positionCode}</p>
                                             </div>
-                                            <div className="flex flex-col gap-1.5">
-                                                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Question Set</span>
-                                                <span className="text-[13px] font-semibold text-black">{questionSetTitle}</span>
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-[12px] text-slate-900 font-bold">Round Type</span>
+                                                <span className="text-[11px] font-normal text-slate-500 underline decoration-slate-200">{questionSetTitle}</span>
                                                 {questionSetDuration && questionSetDuration !== '—' && (
-                                                    <p className="text-[11px] text-slate-500 font-normal">Duration: {questionSetDuration}</p>
+                                                    <p className="text-[9px] font-medium text-blue-500 flex items-center gap-1">
+                                                        <Timer size={10} /> {questionSetDuration}
+                                                    </p>
                                                 )}
                                             </div>
-                                            <div className="flex gap-16 pt-2">
-                                                <div className="flex flex-col gap-1.5">
-                                                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Invited Date</span>
-                                                    <span className="text-[13px] font-normal text-black">
-                                                        {selectedPosition.linkActiveAt ? new Date(selectedPosition.linkActiveAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                                                    </span>
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-[12px] text-slate-900 font-bold">Invited</span>
+                                                <div className="flex items-center gap-2 text-[11px] font-normal text-slate-500">
+                                                    <Calendar size={12} className="text-slate-400" />
+                                                    {selectedPosition.linkActiveAt ? new Date(selectedPosition.linkActiveAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—'}
                                                 </div>
-                                                <div className="flex flex-col gap-1.5">
-                                                    <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Status</span>
-                                                    <span className="text-[13px] font-normal text-black">{selectedPosition.recommendationStatus ?? '—'}</span>
+                                            </div>
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-[12px] text-slate-900 font-bold">Current Status</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-widest border transition-all ${getStatusStyles(selectedPosition.recommendationStatus)}`}>
+                                                        {formatStatus(selectedPosition.recommendationStatus ?? 'PENDING')}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </>
                                     ) : (
-                                        <p className="text-[13px] text-slate-500">No position selected. Add this candidate to a position to see details.</p>
+                                        <div className="flex flex-col items-center justify-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                            <p className="text-[10px] font-medium text-slate-400 text-center px-4">No active links found.</p>
+                                        </div>
                                     )}
                                 </div>
                             </div>
                         </div>
 
-                        {/* ROW 2 – Interview Notes (col 4) */}
-                        <div className="col-span-4">
-                            <div className="bg-[#FFF9E5] border border-amber-200 rounded-[24px] p-5 shadow-[0_20px_50px_rgba(217,119,6,0.08)] relative overflow-hidden h-full flex flex-col">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-amber-400/20 to-transparent rotate-45 translate-x-12 -translate-y-12" />
-                                <h4 className="text-[15px] font-bold text-black mb-3">Interview Notes</h4>
-                                <div className="flex-1 flex flex-col">
-                                    <p className="text-[13px] text-[#92400E] leading-relaxed font-normal mb-4 flex-1">
-                                        {candidate.interview_notes || 'No interview notes available for this candidate yet.'}
-                                    </p>
-                                    <div className="flex items-center justify-between pt-3 border-t border-amber-200/40">
-                                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Notes by {candidate.notesBy || 'N/A'}</p>
-                                        <p className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider text-right">
-                                            {candidate.notesDate ? new Date(candidate.notesDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* ROW 3 – Tabs Section full width (col 12) */}
-                        <div className="col-span-12">
-                            <div className="bg-white rounded-[24px] border border-slate-100 overflow-hidden shadow-sm">
-                                <div className="flex border-b border-slate-100 px-5 bg-slate-50/20">
+                        {/* ROW 2 – Tabs Section (col 8) */}
+                        <div className="col-span-8">
+                            <div className="bg-white rounded-[18px] border border-slate-100 overflow-hidden shadow-sm h-full flex flex-col">
+                                <div className="flex border-b border-slate-100 px-5 bg-slate-50/20 shrink-0">
                                     {tabs.map(tab => (
                                         <button
                                             key={tab}
                                             onClick={() => setActiveTab(tab)}
-                                            className={`py-4 px-2 mr-8 text-xs font-normal transition-all relative flex items-center gap-2 ${activeTab === tab ? 'text-[#FF6B00]' : 'text-slate-400 hover:text-slate-600'}`}
+                                            className={`py-3.5 px-1 mr-6 text-[12px] font-medium transition-all relative flex items-center gap-2 tracking-wide ${activeTab === tab ? 'text-blue-600' : 'text-slate-700 hover:text-blue-600'}`}
                                         >
-                                            {tab === 'Contact Details' && (
-                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                                            )}
-                                            {tab === 'Work History' && (
-                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                                            )}
-                                            {tab === 'Skills' && (
-                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
-                                            )}
-                                            {tab === 'Test Results' && (
-                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                            )}
                                             {tab}
                                             {activeTab === tab && (
-                                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FF6B00] rounded-t-full" />
+                                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-t-full shadow-[0_-2px_6px_rgba(37,99,235,0.3)]" />
                                             )}
                                         </button>
                                     ))}
                                 </div>
-                                <div className="p-5 space-y-4">
+                                <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
                                     {activeTab === 'Contact Details' && (
-                                        <div className="grid grid-cols-1 gap-y-6">
+                                        <div className="grid grid-cols-2 gap-x-12 gap-y-5">
                                             {[
-                                                { label: 'Email', value: candidate.email || candidate.candidateEmail || '—' },
-                                                { label: 'Phone Number', value: candidate.mobile_number || candidate.candidateMobileNumber || candidate.mobileNumber || '—' },
-                                                { label: 'Location', value: candidate.location || '—' },
-                                                { label: 'Birthdate', value: candidate.birthdate ? new Date(candidate.birthdate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : '—' },
-                                                { label: 'Register Number', value: candidate.register_no || candidate.registerNo || '—' },
-                                                { label: 'Address', value: candidate.address || '—' }
+                                                { label: 'Email', value: candidate.email || candidate.candidateEmail || '—', icon: Mail },
+                                                { label: 'Phone', value: candidate.mobile_number || candidate.candidateMobileNumber || '—', icon: Phone },
+                                                { label: 'Location', value: candidate.location || '—', icon: MapPin },
+                                                { label: 'Birthdate', value: candidate.birthdate ? new Date(candidate.birthdate).toLocaleDateString('en-GB') : '—', icon: Calendar },
+                                                { label: 'Reg No', value: candidate.register_no || '—', icon: Hash }
                                             ].map((field, i) => (
-                                                <div key={i} className="flex gap-16 items-start">
-                                                    <p className="text-[10px] font-normal text-black uppercase tracking-widest w-28 shrink-0 pt-0.5">{field.label}</p>
-                                                    <p className="text-xs font-normal text-black tracking-tight leading-relaxed">{field.value}</p>
+                                                <div key={i} className="flex flex-col gap-1">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <field.icon size={10} className="text-slate-400" />
+                                                        <p className="text-[12px] font-bold text-slate-900">{field.label}</p>
+                                                    </div>
+                                                    <p className="text-[11px] font-normal text-slate-500 truncate">{field.value}</p>
                                                 </div>
                                             ))}
                                         </div>
                                     )}
                                     {activeTab === 'Work History' && (
-                                        <p className="text-xs text-slate-500">{candidate.work_history || candidate.workHistory || 'No work history data available.'}</p>
+                                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 min-h-24">
+                                            <p className="text-[12px] text-slate-600 leading-relaxed font-medium">
+                                                {candidate.work_history || 'No professional history recorded.'}
+                                            </p>
+                                        </div>
                                     )}
                                     {activeTab === 'Skills' && (
                                         <div className="flex flex-wrap gap-2">
                                             {candidateSkills.length > 0
                                                 ? candidateSkills.map((skill, i) => (
-                                                    <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                                                        {typeof skill === 'string' ? skill : (skill?.name || skill?.label || String(skill))}
+                                                    <span key={i} className="inline-flex items-center px-3 py-1.5 rounded-xl text-[10px] font-bold bg-white text-slate-700 border border-slate-200 shadow-sm">
+                                                        {typeof skill === 'string' ? skill : (skill?.name || skill?.label)}
                                                     </span>
                                                 ))
-                                                : <p className="text-xs text-slate-500">No skills added for this candidate.</p>
+                                                : <p className="text-[11px] font-medium text-slate-400 uppercase italic">No skill data available</p>
                                             }
                                         </div>
                                     )}
                                     {activeTab === 'Test Results' && (
-                                        <p className="text-xs text-slate-500">{candidate.assessments?.length ? `Assessment data available (${candidate.assessments.length} records).` : (candidate.test_results || candidate.testResults || 'No test results data available.')}</p>
+                                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 min-h-24">
+                                            <p className="text-[12px] text-slate-600 leading-relaxed font-medium capitalize">
+                                                {candidate.assessments?.length ? `Detailed evaluation available (${candidate.assessments.length} records).` : 'No performance metrics found.'}
+                                            </p>
+                                        </div>
                                     )}
+                                    {activeTab === 'Credits' && (
+                                        <div className="space-y-6">
+                                            {/* Summary Cards */}
+                                            <div className="grid grid-cols-3 gap-4">
+                                                <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 transition-all hover:shadow-md group">
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <div className="p-1.5 bg-blue-600 rounded-lg text-white shadow-sm group-hover:scale-110 transition-transform">
+                                                            <Zap size={14} />
+                                                        </div>
+                                                        <span className="text-[11px] font-bold text-blue-600 uppercase tracking-widest">Purchased</span>
+                                                    </div>
+                                                    <div className="flex items-baseline gap-1">
+                                                        <p className="text-2xl font-black text-slate-900 leading-none">{creditsInfo?.totalPurchased || 0}</p>
+                                                        <p className="text-[10px] font-bold text-slate-400">PTS</p>
+                                                    </div>
+                                                    <div className="mt-2 flex flex-col gap-0.5">
+                                                        <p className="text-[9px] font-medium text-slate-400">Plan: {creditsInfo?.planName || 'N/A'}</p>
+                                                        {creditsInfo?.validFrom && (
+                                                            <p className="text-[8px] font-semibold text-slate-300 uppercase">Since {new Date(creditsInfo.validFrom).toLocaleDateString()}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-4 transition-all hover:shadow-md group">
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <div className="p-1.5 bg-emerald-600 rounded-lg text-white shadow-sm group-hover:scale-110 transition-transform">
+                                                            <Shield size={14} />
+                                                        </div>
+                                                        <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-widest">Remaining</span>
+                                                    </div>
+                                                    <div className="flex items-baseline gap-1">
+                                                        <p className="text-2xl font-black text-slate-900 leading-none">{creditsInfo?.remaining || 0}</p>
+                                                        <p className="text-[10px] font-bold text-slate-400">PTS</p>
+                                                    </div>
+                                                    <div className="mt-2 flex flex-col gap-0.5">
+                                                        <p className="text-[9px] font-medium text-emerald-600 flex items-center gap-1">
+                                                            <Activity size={10} /> Active Balance
+                                                        </p>
+                                                        {creditsInfo?.validTill && (
+                                                            <p className="text-[8px] font-semibold text-emerald-400 uppercase">Expires {new Date(creditsInfo.validTill).toLocaleDateString()}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="bg-slate-50/50 border border-slate-100 rounded-2xl p-4 transition-all hover:shadow-md group">
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <div className="p-1.5 bg-slate-600 rounded-lg text-white shadow-sm group-hover:scale-110 transition-transform">
+                                                            <Clock size={14} />
+                                                        </div>
+                                                        <span className="text-[11px] font-bold text-slate-600 uppercase tracking-widest">Utilized</span>
+                                                    </div>
+                                                    <div className="flex items-baseline gap-1">
+                                                        <p className="text-2xl font-black text-slate-900 leading-none">{creditsInfo?.utilized || 0}</p>
+                                                        <p className="text-[10px] font-bold text-slate-400">PTS</p>
+                                                    </div>
+                                                    <p className="text-[9px] font-medium text-slate-400 mt-2">Historical Usage</p>
+                                                </div>
+                                            </div>
+
+                                            {/* History Table */}
+                                            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
+                                                <div className="px-5 py-3.5 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
+                                                    <h5 className="text-[13px] font-bold text-slate-800 flex items-center gap-2">
+                                                        <Database size={15} className="text-blue-600" />
+                                                        Usage History
+                                                    </h5>
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{creditsInfo?.history?.length || 0} Records</span>
+                                                </div>
+                                                <div className="max-h-[300px] overflow-y-auto no-scrollbar">
+                                                    {loadingCredits ? (
+                                                        <div className="flex items-center justify-center py-10">
+                                                            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                                        </div>
+                                                    ) : creditsInfo?.history?.length > 0 ? (
+                                                        <table className="w-full text-left border-collapse">
+                                                            <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm">
+                                                                <tr>
+                                                                    <th className="px-5 py-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Service</th>
+                                                                    <th className="px-5 py-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Points</th>
+                                                                    <th className="px-5 py-2.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Date</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-slate-50">
+                                                                {creditsInfo.history.map((item, i) => (
+                                                                    <tr key={item.id || i} className="hover:bg-slate-50/80 transition-colors group">
+                                                                        <td className="px-5 py-2.5">
+                                                                            <div className="flex flex-col">
+                                                                                <p className="text-[11px] font-bold text-slate-800 leading-tight group-hover:text-blue-600 transition-colors">{item.service_name}</p>
+                                                                                <p className="text-[9px] font-medium text-slate-400 uppercase tracking-wider">{item.service_type}</p>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-5 py-2.5 text-right">
+                                                                            <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-orange-50 text-orange-600 text-[10px] font-black border border-orange-100">
+                                                                                -{item.credits_used}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="px-5 py-2.5 text-right">
+                                                                            <p className="text-[10px] font-bold text-slate-500">{new Date(item.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</p>
+                                                                            <p className="text-[9px] font-medium text-slate-300">{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    ) : (
+                                                        <div className="flex flex-col items-center justify-center py-12 gap-3 opacity-60">
+                                                            <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center border border-slate-100 italic">
+                                                                0
+                                                            </div>
+                                                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">No credit logic detected</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ROW 3 – AI Insight full width (col 12) */}
+                        <div className="col-span-12">
+                            <div className="bg-blue-600 rounded-[20px] p-6 shadow-[0_20px_40px_-12px_rgba(37,99,235,0.3)] relative overflow-hidden group transition-all">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110" />
+                                <h4 className="text-[16px] font-bold text-white mb-4 flex items-center gap-2">
+                                    <FileText size={18} />
+                                    AI Insight Overview
+                                </h4>
+                                <div className="relative z-10 flex flex-col gap-4">
+                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20 shadow-inner">
+                                        <p className="text-[13px] text-blue-50 leading-relaxed font-medium">
+                                            {candidate.interview_notes || 'Profile classification pending. Analytical insight will automatically populate after candidate screening is finalized.'}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center justify-between border-t border-white/10 pt-4">
+                                        <div className="flex items-center gap-8">
+                                            <div>
+                                                <p className="text-[9px] text-blue-100/60 font-bold uppercase tracking-wider">Classification By</p>
+                                                <p className="text-[11px] text-white font-bold flex items-center gap-1.5">
+                                                    <Globe size={11} /> {candidate.notesBy || 'GLOBAL AI'}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[9px] text-blue-100/60 font-bold uppercase tracking-wider">Latest Update</p>
+                                                <p className="text-[11px] text-white font-bold flex items-center gap-1.5">
+                                                    <Calendar size={11} /> {candidate.notesDate ? new Date(candidate.notesDate).toLocaleDateString() : 'PENDING'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="px-4 py-1 rounded-full bg-white/10 border border-white/20 text-[10px] font-bold text-white uppercase tracking-widest shadow-sm">
+                                            Analysis Active
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

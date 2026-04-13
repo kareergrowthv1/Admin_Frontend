@@ -90,7 +90,7 @@ const PositionDetailsDrawer = ({ isOpen, onClose, positionId, onEdit }) => {
     const getStatusColor = (status) => {
         const statusMap = {
             'ACTIVE': 'bg-green-50 text-green-600 border-green-100',
-            'ON_HOLD': 'bg-orange-50 text-orange-600 border-orange-100',
+            'ON_HOLD': 'bg-blue-50 text-blue-600 border-blue-100',
             'CLOSED': 'bg-red-50 text-red-600 border-red-100',
             'DRAFT': 'bg-purple-50 text-purple-600 border-purple-100',
             'EXPIRED': 'bg-red-50 text-red-600 border-red-100',
@@ -131,7 +131,7 @@ const PositionDetailsDrawer = ({ isOpen, onClose, positionId, onEdit }) => {
                 <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
                     {loading ? (
                         <div className="h-full flex items-center justify-center">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF6B00]"></div>
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                         </div>
                     ) : position ? (
                         <div className="flex flex-col gap-6">
@@ -187,7 +187,7 @@ const PositionDetailsDrawer = ({ isOpen, onClose, positionId, onEdit }) => {
                                 {/* Additional Details Box */}
                                 <div className="w-80 bg-white rounded-2xl border border-slate-100 p-6 shadow-sm flex flex-col space-y-5">
                                     <h3 className="text-sm font-normal text-black pb-3 border-b border-slate-50 mb-1 flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-[#FF6B00]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                                        <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
                                         Additional Skills
                                     </h3>
                                     <div className="flex flex-col gap-1">
@@ -210,7 +210,7 @@ const PositionDetailsDrawer = ({ isOpen, onClose, positionId, onEdit }) => {
                                 {/* Skills Box */}
                                 <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm h-full flex flex-col">
                                     <h3 className="text-sm font-normal text-black pb-3 border-b border-slate-50 mb-6 flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-[#FF6B00]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                        <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                                         Skills Required
                                     </h3>
                                     <div className="space-y-6">
@@ -242,19 +242,19 @@ const PositionDetailsDrawer = ({ isOpen, onClose, positionId, onEdit }) => {
                                 {/* Notes Section */}
                                 <div className="flex flex-col h-full">
                                     <h3 className="text-sm font-normal text-black mb-4 flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-[#FF6B00]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                         </svg>
                                         Internal Notes
                                     </h3>
-                                    <div className="bg-[#FFE169] rounded-2xl border border-[#EAB308] p-6 shadow-[0_12px_30px_rgba(234,179,8,0.2)] relative overflow-hidden flex flex-col h-full min-h-[160px]">
+                                    <div className="bg-blue-50 rounded-2xl border border-blue-200 p-6 shadow-[0_12px_30px_rgba(37,99,235,0.2)] relative overflow-hidden flex flex-col h-full min-h-[160px]">
                                         <div className="flex-grow relative z-10">
-                                            <p className="text-xs text-[#92400E] font-medium leading-relaxed">
+                                            <p className="text-xs text-blue-800 font-medium leading-relaxed">
                                                 {position.internalNotes || "No internal notes provided for this position."}
                                             </p>
                                         </div>
 
-                                        <div className="mt-6 flex justify-between items-center text-[10px] text-[#A16207] font-semibold relative z-10 uppercase tracking-widest pt-4 border-t border-[#EAB308]/20">
+                                        <div className="mt-6 flex justify-between items-center text-[10px] text-blue-700 font-semibold relative z-10 uppercase tracking-widest pt-4 border-t border-blue-200/20">
                                             <span>Notes by {creatorName || 'System'}</span>
                                             <span>{position.updatedAt ? new Date(position.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}</span>
                                         </div>
@@ -266,7 +266,7 @@ const PositionDetailsDrawer = ({ isOpen, onClose, positionId, onEdit }) => {
                             <div>
                                 <div className="flex items-center justify-between mb-6">
                                     <h3 className="text-sm font-normal text-black flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-[#FF6B00]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                                         </svg>
                                         Candidates Assigned
@@ -275,7 +275,7 @@ const PositionDetailsDrawer = ({ isOpen, onClose, positionId, onEdit }) => {
                                     {totalCandidates > 0 && (
                                         <button
                                             onClick={() => window.location.href = `/positions/${positionId}/candidates`}
-                                            className="text-[10px] font-semibold text-[#FF6B00] uppercase tracking-wider hover:opacity-80 transition-opacity"
+                                            className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider hover:opacity-80 transition-opacity"
                                         >
                                             View All Candidates
                                         </button>
