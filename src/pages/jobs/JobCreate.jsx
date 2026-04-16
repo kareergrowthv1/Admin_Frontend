@@ -179,7 +179,7 @@ const JobCreate = () => {
 
         setGeneratingSkills(true);
         try {
-            const aiUrl = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:9000';
+            const aiUrl = import.meta.env.VITE_AI_SERVICE_URL;
             const res = await axios.post(`${aiUrl}/ai/generate-skills`, {
                 jobTitle: form.jobTitle,
                 domain: form.jobRole || '',
@@ -232,7 +232,7 @@ const JobCreate = () => {
         setGeneratingJD(true);
         setForm(prev => ({ ...prev, jobDescription: '' }));
         
-        const aiUrl = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:9000';
+        const aiUrl = import.meta.env.VITE_AI_SERVICE_URL;
         const wsUrl = aiUrl.replace('http', 'ws') + '/ai/ws/generate-job-description';
         const ws = new WebSocket(wsUrl);
         

@@ -38,6 +38,8 @@ const Candidates = () => {
     const [openAvatarId, setOpenAvatarId] = useState(null);
     const [manualInviteLoadingId, setManualInviteLoadingId] = useState(null);
     const [manualInviteConfirmCandidate, setManualInviteConfirmCandidate] = useState(null);
+    const [resendInviteLoadingId, setResendInviteLoadingId] = useState(null);
+    const [resendInviteConfirmCandidate, setResendInviteConfirmCandidate] = useState(null);
     const [deleteConfirmCandidate, setDeleteConfirmCandidate] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -227,7 +229,15 @@ const Candidates = () => {
         if (!organizationId) return;
         try {
             if (showLoading) setLoading(true);
-            const normalizeCandidate = (item) => ({
+            const normalizeCandidate = (item) => {
+                const toFlag = (value) => value === true || value === 1 || value === '1' || value === 'true';
+
+                // Report icon visibility must depend only on backend report-generated flag,
+                // not on recommendation status.
+                const reportGeneratedRaw = item.isReportGenerated ?? item.is_report_generated;
+                const reportGenerated = toFlag(reportGeneratedRaw);
+
+                return {
                 ...item,
                 candidateName: item.candidateName || item.name || 'N/A',
                 candidateEmail: item.candidateEmail || item.email || 'N/A',
@@ -235,9 +245,21 @@ const Candidates = () => {
                 candidateId: item.candidateId || item.id,
                 positionTitle: item.positionTitle || (position?.title) || '-',
                 positionCode: item.positionCode || (position?.code) || '-',
+                recordingLink: item.recordingLink || item.recording_link || null,
+                screenRecordingLink: item.screenRecordingLink || item.screen_recording_link || item.recordingLink || item.recording_link || null,
+                cameraRecordingLink: item.cameraRecordingLink || item.camera_recording_link || null,
+                isVideoMerged: toFlag(item.isVideoMerged ?? item.is_video_merged),
+                is_video_merged: toFlag(item.is_video_merged ?? item.isVideoMerged),
+                isVideoGenerated: toFlag(item.isVideoGenerated ?? item.is_video_generated ?? item.isVideoMerged ?? item.is_video_merged),
+                is_video_generated: toFlag(item.is_video_generated ?? item.isVideoGenerated ?? item.is_video_merged ?? item.isVideoMerged),
+                isScreenVideoMerged: toFlag(item.isScreenVideoMerged ?? item.is_screen_video_merged ?? item.isVideoMerged ?? item.is_video_merged),
+                isCameraVideoMerged: toFlag(item.isCameraVideoMerged ?? item.is_camera_video_merged),
                 recommendationStatus: item.recommendationStatus || item.status || 'All',
                 linkActiveAt: item.linkActiveAt || item.assignedAt || item.candidateCreatedAt,
-            });
+                isReportGenerated: reportGenerated,
+                is_report_generated: reportGenerated,
+                };
+            };
 
             const listUrl = '/candidates';
             const response = await axios.get(listUrl, { params: buildListParams(page, isManualRefresh) });
@@ -286,26 +308,26 @@ const Candidates = () => {
 
     const getStatusStyles = (status) => {
         const styles = {
-            'INVITED': 'bg-purple-50 text-purple-600 border-purple-200',
-            'MANUALLY_INVITED': 'bg-cyan-50 text-cyan-400 border-cyan-200',
-            'RESUME_REJECTED': 'bg-red-50 text-red-600 border-red-200',
-            'LINK_EXPIRED': 'bg-orange-50 text-orange-500 border-orange-200',
-            'EXPIRED': 'bg-orange-50 text-orange-500 border-orange-200',
-            'RECOMMENDED': 'bg-emerald-50 text-emerald-600 border-emerald-100',
-            'NOT_RECOMMENDED': 'bg-rose-50 text-rose-600 border-rose-100',
-            'CAUTIOUSLY_RECOMMENDED': 'bg-amber-50 text-amber-600 border-amber-100',
-            'TEST_STARTED': 'bg-blue-50 text-blue-600 border-blue-100',
-            'IN_PROGRESS': 'bg-sky-50 text-sky-600 border-sky-100',
-            'TEST_COMPLETED': 'bg-sky-50 text-sky-600 border-sky-100',
-            'UNATTENDED': 'bg-slate-50 text-slate-500 border-slate-100',
-            'NETWORK_DISCONNECTED': 'bg-amber-50 text-amber-600 border-amber-100',
-            'ROUND1': 'bg-purple-50 text-purple-600 border-purple-100',
-            'ROUND2': 'bg-purple-50 text-purple-600 border-purple-100',
-            'ROUND3': 'bg-purple-50 text-purple-600 border-purple-100',
-            'ROUND4': 'bg-purple-50 text-purple-600 border-purple-100',
-            'NETWORK_ISSUE': 'bg-amber-50 text-amber-600 border-amber-100'
+            'INVITED': 'bg-purple-50 text-purple-600 border-purple-300',
+            'MANUALLY_INVITED': 'bg-cyan-50 text-cyan-400 border-cyan-300',
+            'RESUME_REJECTED': 'bg-red-50 text-red-600 border-red-300',
+            'LINK_EXPIRED': 'bg-pink-50 text-pink-600 border-pink-400',
+            'EXPIRED': 'bg-pink-50 text-pink-600 border-pink-400',
+            'RECOMMENDED': 'bg-emerald-50 text-emerald-600 border-emerald-300',
+            'NOT_RECOMMENDED': 'bg-orange-50 text-orange-600 border-orange-300',
+            'CAUTIOUSLY_RECOMMENDED': 'bg-amber-50 text-amber-600 border-amber-300',
+            'TEST_STARTED': 'bg-blue-50 text-blue-600 border-blue-300',
+            'IN_PROGRESS': 'bg-sky-50 text-sky-600 border-sky-300',
+            'TEST_COMPLETED': 'bg-sky-50 text-sky-600 border-sky-300',
+            'UNATTENDED': 'bg-slate-50 text-slate-500 border-slate-300',
+            'NETWORK_DISCONNECTED': 'bg-amber-50 text-amber-600 border-amber-300',
+            'ROUND1': 'bg-purple-50 text-purple-600 border-purple-300',
+            'ROUND2': 'bg-purple-50 text-purple-600 border-purple-300',
+            'ROUND3': 'bg-purple-50 text-purple-600 border-purple-300',
+            'ROUND4': 'bg-purple-50 text-purple-600 border-purple-300',
+            'NETWORK_ISSUE': 'bg-amber-50 text-amber-600 border-amber-300'
         };
-        return styles[status] || 'bg-slate-50 text-slate-500 border-slate-100';
+        return styles[status] || 'bg-slate-50 text-slate-500 border-slate-300';
     };
 
 
@@ -382,6 +404,44 @@ const Candidates = () => {
         }
     };
 
+    const handleResendInvite = async (candidate) => {
+        const pid = candidate.positionCandidateId || candidate.position_candidate_id;
+        if (!pid || !organizationId) {
+            toast.error('Missing position-candidate or organization.');
+            return;
+        }
+        setResendInviteConfirmCandidate(null);
+        setResendInviteLoadingId(pid);
+        let companyName = 'Company';
+        try {
+            const storedUser = JSON.parse(localStorage.getItem('admin_user') || '{}');
+            const orgId = organizationId || storedUser?.organizationId || localStorage.getItem('organizationId');
+            const isCollege = storedUser.isCollege === true;
+            const path = orgId ? (isCollege ? `/admins/college-details/${orgId}` : `/admins/company-details/${orgId}`) : null;
+            if (path) {
+                const res = await axios.get(path);
+                companyName = res.data?.data?.collegeName ?? res.data?.data?.companyName ?? companyName;
+            }
+        } catch (_) { }
+        try {
+            await axios.post('/position-candidates/manual-invite', {
+                positionCandidateId: pid,
+                organizationId: organizationId || JSON.parse(localStorage.getItem('admin_user') || '{}')?.organizationId,
+                companyName,
+                candidateEmail: candidate.candidateEmail || candidate.email
+            });
+            clearApiCache();
+            await handleRefresh();
+            toast.success('Invite resent successfully. Email has been sent.');
+            fetchCandidates();
+        } catch (error) {
+            console.error('Failed to resend invite:', error);
+            toast.error(error.response?.data?.message || 'Failed to resend invite');
+        } finally {
+            setResendInviteLoadingId(null);
+        }
+    };
+
     const handleDeleteCandidate = async (candidate) => {
         setIsDeleting(true);
         const loadingToast = toast.loading('Removing candidate...');
@@ -406,8 +466,6 @@ const Candidates = () => {
         }
     };
 
-    const REPORT_ELIGIBLE_STATUSES = ['TEST_COMPLETED', 'RECOMMENDED', 'CAUTIOUSLY_RECOMMENDED', 'NOT_RECOMMENDED'];
-
     const openCandidateReport = (candidate) => {
         const candidateId = candidate.candidateId;
         const positionId = candidate.positionId || candidate.position_id;
@@ -423,6 +481,7 @@ const Candidates = () => {
             tenantId: clientId,
             questionSetId: candidate.questionSetId || '',
             candidateName: candidate.candidateName || candidate.candidate_name || '',
+            reportGenerated: candidate.isReportGenerated ? '1' : '0',
         }).toString();
 
         window.open(`/candidates/${candidateId}/report?${query}`, '_blank', 'noopener,noreferrer');
@@ -430,14 +489,17 @@ const Candidates = () => {
 
     const openCandidateRecording = (candidate) => {
         const candidateId = candidate.candidateId;
-        const recordingLink = candidate.recordingLink || '';
-        if (!candidateId || !recordingLink) {
+        const screenRecordingLink = candidate.screenRecordingLink || candidate.recordingLink || '';
+        const cameraRecordingLink = candidate.cameraRecordingLink || '';
+        if (!candidateId || (!screenRecordingLink && !cameraRecordingLink)) {
             toast.error('Recording not available for this candidate.');
             return;
         }
 
         const query = new URLSearchParams({
-            recordingLink,
+            recordingLink: screenRecordingLink,
+            screenRecordingLink,
+            cameraRecordingLink,
             candidateName: candidate.candidateName || candidate.candidate_name || '',
             positionTitle: candidate.positionTitle || candidate.job_title || '',
         }).toString();
@@ -726,8 +788,18 @@ const Candidates = () => {
                                 const invitedDate = candidate.linkActiveAt || candidate.candidateCreatedAt;
                                 const resumeScore = candidate.resumeMatchScore ?? '-';
                                 const status = candidate.recommendationStatus || 'All';
-                                const recordingLink = candidate.recordingLink || null;
-                                const canUseReport = REPORT_ELIGIBLE_STATUSES.includes(status);
+                                const recordingLink = (candidate.recordingLink || '').trim() || null;
+                                const screenRecordingLink = (candidate.screenRecordingLink || recordingLink || '').trim() || null;
+                                const cameraRecordingLink = (candidate.cameraRecordingLink || '').trim() || null;
+                                const hasMergedRecording = Boolean(
+                                    candidate.isVideoMerged ??
+                                    candidate.is_video_merged ??
+                                    candidate.isVideoGenerated ??
+                                    candidate.is_video_generated ??
+                                    candidate.isScreenVideoMerged ??
+                                    candidate.isCameraVideoMerged
+                                ) || Boolean(screenRecordingLink || cameraRecordingLink);
+                                const canUseReport = (candidate.isReportGenerated ?? candidate.is_report_generated) === true;
 
                                 return (
                                     <tr key={candidate.id || positionCandidateId || index} className="hover:bg-slate-100/40 transition-colors group">
@@ -783,7 +855,7 @@ const Candidates = () => {
                                                 {/* Report icon — outside dropdown */}
                                                 {canUseReport && (
                                                     <button
-                                                        title="View / Generate AI Report"
+                                                        title="View AI Report"
                                                         onClick={() => openCandidateReport(candidate)}
                                                         className="p-1 rounded-full transition-all text-blue-700 hover:bg-blue-50"
                                                     >
@@ -792,13 +864,12 @@ const Candidates = () => {
                                                         </svg>
                                                     </button>
                                                 )}
-                                                {/* Recording icon — outside dropdown */}
-                                                {['TEST_COMPLETED', 'RECOMMENDED', 'CAUTIOUSLY_RECOMMENDED', 'NOT_RECOMMENDED'].includes(status) && (
+                                                {/* Recording icon: show only when merged GCP video exists */}
+                                                {hasMergedRecording && (
                                                     <button
-                                                        title={recordingLink ? 'View Recording' : 'Recording not available'}
-                                                        onClick={() => { if (recordingLink) openCandidateRecording(candidate); }}
-                                                        disabled={!recordingLink}
-                                                        className={`p-1 rounded-full transition-all ${recordingLink ? 'text-purple-700 hover:bg-purple-50' : 'text-slate-200 cursor-not-allowed'}`}
+                                                        title="View Recording"
+                                                        onClick={() => openCandidateRecording(candidate)}
+                                                        className="p-1 rounded-full transition-all text-purple-700 hover:bg-purple-50"
                                                     >
                                                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                             <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -866,6 +937,18 @@ const Candidates = () => {
                                         </button>
                                     </PermissionWrapper>
                                 )}
+                                {['INVITED', 'MANUALLY_INVITED'].includes(candidate.recommendationStatus) && (
+                                    <PermissionWrapper feature="candidates" permission="update">
+                                        <button
+                                            onClick={() => { setOpenMenuId(null); setResendInviteConfirmCandidate(candidate); }}
+                                            disabled={resendInviteLoadingId === candidate.positionCandidateId}
+                                            className="w-full text-left px-4 py-2.5 text-[11px] font-normal text-black hover:bg-slate-50 transition-colors flex items-center gap-2 disabled:opacity-50"
+                                        >
+                                            <svg className={`w-4 h-4 ${resendInviteLoadingId === candidate.positionCandidateId ? 'animate-spin' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                            {resendInviteLoadingId === candidate.positionCandidateId ? 'Sending...' : 'Resend Invite'}
+                                        </button>
+                                    </PermissionWrapper>
+                                )}
                                 {['INVITED', 'RESUME_REJECTED', 'MANUALLY_INVITED'].includes(candidate.recommendationStatus) && (
                                     <PermissionWrapper feature="candidates" permission="delete">
                                         <button
@@ -923,6 +1006,43 @@ const Candidates = () => {
                                     </svg>
                                 )}
                                 Send invite
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Resend invite confirmation modal */}
+            {resendInviteConfirmCandidate && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40" onClick={() => !resendInviteLoadingId && setResendInviteConfirmCandidate(null)}>
+                    <div className="bg-white rounded-xl shadow-xl border border-slate-100 max-w-sm w-full p-5" onClick={e => e.stopPropagation()}>
+                        <p className="text-sm font-medium text-slate-800 mb-1">Resend invite link?</p>
+                        <p className="text-xs text-slate-500 mb-4">
+                            Resend the test link and verification code to <span className="font-semibold text-slate-700">{resendInviteConfirmCandidate.candidateName || resendInviteConfirmCandidate.candidate_name || 'this candidate'}</span> by email.
+                        </p>
+                        <div className="flex gap-2 justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setResendInviteConfirmCandidate(null)}
+                                disabled={!!resendInviteLoadingId}
+                                className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleResendInvite(resendInviteConfirmCandidate)}
+                                disabled={!!resendInviteLoadingId}
+                                className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:brightness-110 flex items-center gap-2 disabled:opacity-50"
+                            >
+                                {resendInviteLoadingId ? (
+                                    <span className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                )}
+                                Resend
                             </button>
                         </div>
                     </div>
