@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { clearAuthStorage } from '../utils/authStorage';
 import { installGetCache, clearApiCache } from '../utils/apiCache';
+import { API_BASE_URL, CANDIDATE_API_BASE_URL, AI_SERVICE_BASE_URL } from '../utils/constants';
 
 const instance = axios.create({
-  baseURL: import.meta.env.VITE_ADMIN_API_URL,
+  baseURL: API_BASE_URL,
   timeout: 10000,
   withCredentials: true,
 });
@@ -108,9 +109,8 @@ instance.interceptors.response.use(
   }
 );
 
-const candidateApiBaseURL = import.meta.env.VITE_CANDIDATE_API_URL;
 const candidateApi = axios.create({
-  baseURL: candidateApiBaseURL,
+  baseURL: CANDIDATE_API_BASE_URL,
   timeout: 30000,
   withCredentials: true,
 });
@@ -147,9 +147,8 @@ candidateApi.interceptors.response.use(
 );
 
 // AI service – direct (e.g. schedule-interview)
-const aiServiceBaseURL = import.meta.env.VITE_AI_SERVICE_URL;
 const gatewayApi = axios.create({
-  baseURL: aiServiceBaseURL,
+  baseURL: AI_SERVICE_BASE_URL,
   timeout: 30000,
   withCredentials: true,
 });
