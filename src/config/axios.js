@@ -111,7 +111,7 @@ instance.interceptors.response.use(
 
 const candidateApi = axios.create({
   baseURL: CANDIDATE_API_BASE_URL,
-  timeout: 30000,
+  timeout: 60000,
   withCredentials: true,
 });
 
@@ -149,7 +149,7 @@ candidateApi.interceptors.response.use(
 // AI service – direct (e.g. schedule-interview)
 const gatewayApi = axios.create({
   baseURL: AI_SERVICE_BASE_URL,
-  timeout: 30000,
+  timeout: 60000,
   withCredentials: true,
 });
 
