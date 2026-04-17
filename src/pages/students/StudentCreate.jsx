@@ -334,7 +334,7 @@ const StudentCreate = () => {
                 navigate('/candidates/add', { 
                     state: { 
                         ...location.state.originalFormData, 
-                        newlyAddedEmail: payload.email 
+                        newlyAddedEmail: form.email 
                     } 
                 });
             } else {
