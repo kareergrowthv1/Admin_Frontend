@@ -25,6 +25,7 @@ const AddCandidate = () => {
     const [existingCandidateId, setExistingCandidateId] = useState(null);
     const [candidateNotFound, setCandidateNotFound] = useState(false);
     const [emailChecked, setEmailChecked] = useState(false);
+    const [showNotFoundModal, setShowNotFoundModal] = useState(false);
 
     const questionSetDropdownRef = useRef(null);
     const emailTimeoutRef = useRef(null);
@@ -307,6 +308,7 @@ const AddCandidate = () => {
                 if (cid) setExistingCandidateId(cid);
                 setCandidateNotFound(false);
                 setEmailChecked(true);
+                setShowNotFoundModal(false);
                 const raw = (candidate.mobile_number || '').replace(/\D/g, '');
                 const tenDigits = raw.length >= 10 ? raw.slice(-10) : raw;
                 setFormData(prev => ({
@@ -327,7 +329,7 @@ const AddCandidate = () => {
                 setExistingCandidateId(null);
                 setCandidateNotFound(true);
                 setEmailChecked(true);
-                // Removed setShowNotFoundModal(true) - allow adding inline
+                setShowNotFoundModal(true);
             }
         } catch (error) {
             console.error('Error auto-fetching candidate:', error);
@@ -335,6 +337,7 @@ const AddCandidate = () => {
                 setExistingCandidateId(null);
                 setCandidateNotFound(true);
                 setEmailChecked(true);
+                setShowNotFoundModal(true);
             }
         } finally {
             if (isMounted.current) {
@@ -810,9 +813,12 @@ const AddCandidate = () => {
                     <PermissionWrapper feature="candidates" permission="write">
                         <button
                             onClick={handleSubmit}
-                            disabled={loading || (emailChecked && candidateNotFound)}
-                            title={emailChecked && candidateNotFound ? 'Candidate not found — please add them as a student first' : ''}
-                            className="px-6 py-2 text-xs font-bold rounded-lg bg-gradient-to-b from-blue-600 to-blue-700 text-white hover:brightness-110 shadow-lg shadow-blue-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={loading}
+                            className={`px-6 py-2 text-xs font-bold rounded-lg transition-all ${
+                                emailChecked && candidateNotFound
+                                    ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20'
+                                    : 'bg-gradient-to-b from-blue-600 to-blue-700 text-white hover:brightness-110 shadow-lg shadow-blue-500/20'
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
                         >
                             {loading ? 'Adding Candidate...' : 'Add Candidate'}
                         </button>
@@ -1135,6 +1141,52 @@ const AddCandidate = () => {
                             <p className="text-sm font-medium">
                                 Link is ready to share
                             </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Candidate Not Found / Quick Add Modal */}
+            {showNotFoundModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 text-center animate-in zoom-in duration-200">
+                        <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <h3 className="text-xl font-bold text-slate-800 mb-2">Student Not Found</h3>
+                        <p className="text-slate-500 text-sm leading-relaxed mb-8">
+                            We couldn't find a student with the email <span className="font-bold text-slate-700 tracking-tight">{formData.candidate_email}</span> in your organization database.
+                        </p>
+                        
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowNotFoundModal(false);
+                                    navigate('/students/add', {
+                                        state: {
+                                            fromAddCandidate: true,
+                                            email: formData.candidate_email,
+                                            candidate_name: formData.candidate_name,
+                                            mobile_number: formData.whatsapp_number,
+                                            originalFormData: formData
+                                        }
+                                    });
+                                }}
+                                className="w-full py-3.5 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all active:scale-95"
+                            >
+                                Add Now
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowNotFoundModal(false);
+                                    // Keep error state but allow user to edit email
+                                }}
+                                className="w-full py-3 text-slate-500 font-semibold hover:text-slate-700 transition-colors"
+                            >
+                                Cancel
+                            </button>
                         </div>
                     </div>
                 </div>
