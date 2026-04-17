@@ -5,7 +5,7 @@ import { API_BASE_URL, CANDIDATE_API_BASE_URL, AI_SERVICE_BASE_URL } from '../ut
 
 const instance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 60000,
   withCredentials: true,
 });
 
