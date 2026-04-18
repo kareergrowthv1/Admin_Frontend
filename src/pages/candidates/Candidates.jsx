@@ -300,7 +300,7 @@ const Candidates = () => {
     useEffect(() => {
         if (!organizationId) return;
         const pollInterval = setInterval(() => {
-            fetchCandidates(false);
+            fetchCandidates(false, true); // Use manual refresh flag to trigger cache-buster (_t)
             fetchStatusCounts();
         }, 30000);
         return () => clearInterval(pollInterval);
