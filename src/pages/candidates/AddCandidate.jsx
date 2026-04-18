@@ -27,6 +27,7 @@ const AddCandidate = () => {
     const [candidateNotFound, setCandidateNotFound] = useState(false);
     const [emailChecked, setEmailChecked] = useState(false);
     const [showNotFoundModal, setShowNotFoundModal] = useState(false);
+    const [showResumeTextEditor, setShowResumeTextEditor] = useState(false);
 
     const questionSetDropdownRef = useRef(null);
     const emailTimeoutRef = useRef(null);
@@ -296,8 +297,16 @@ const AddCandidate = () => {
             try {
                 extractedRawText = await extractTextFromFile(file);
                 console.log(`[AddCandidate] Frontend extracted ${extractedRawText.length} characters`);
+                if (extractedRawText.length < 50) {
+                    toast.error('Resume text too short for AI scoring. Please review or paste manually below.', { duration: 5000 });
+                    setShowResumeTextEditor(true);
+                } else {
+                    setShowResumeTextEditor(false);
+                }
             } catch (err) {
                 console.warn('[AddCandidate] Frontend extraction failed:', err);
+                setShowResumeTextEditor(true);
+                toast.error('Could not extract text from resume. Please paste it manually for AI scoring.');
             }
 
             setFormData({ ...formData, resume_file: file, extracted_raw_text: extractedRawText });
@@ -669,6 +678,9 @@ const AddCandidate = () => {
             });
             const data = scoreRes.data?.data || {};
             recommendationStatus = data.recommendationStatus || 'INVITED';
+            if (scoreRes.data.warning || data.warning) {
+                toast.error(scoreRes.data.warning || data.warning, { icon: '⚠️', duration: 6000 });
+            }
         } catch (err) {
             const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Resume scoring skipped';
             toast.error(msg, { duration: 5000 });
@@ -1113,6 +1125,44 @@ const AddCandidate = () => {
                                     ) : null}
                                 </div>
                             </div>
+
+                            {/* Manual Resume Text Editor Fallback */}
+                            {(showResumeTextEditor || (formData.extracted_raw_text && formData.extracted_raw_text.length < 100)) && (
+                                <div className="mt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <label className="text-[12px] font-semibold text-amber-700 flex items-center gap-1">
+                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                            Extracted Resume Text (Required for AI Scoring)
+                                        </label>
+                                        <button 
+                                            type="button"
+                                            onClick={() => setShowResumeTextEditor(!showResumeTextEditor)}
+                                            className="text-[10px] font-bold text-slate-400 hover:text-slate-600"
+                                        >
+                                            {showResumeTextEditor ? 'Hide Editor' : 'Show Editor'}
+                                        </button>
+                                    </div>
+                                    {showResumeTextEditor && (
+                                        <textarea
+                                            value={formData.extracted_raw_text}
+                                            onChange={(e) => setFormData({ ...formData, extracted_raw_text: e.target.value })}
+                                            className="w-full px-4 py-3 border border-amber-200 bg-amber-50/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-[13px] font-mono shadow-[inset_0_0_3px_rgba(0,0,0,0.05)] resize-y min-h-[120px]"
+                                            placeholder="Paste resume text here if extraction failed or was incomplete..."
+                                        />
+                                    )}
+                                    {formData.extracted_raw_text && formData.extracted_raw_text.length < 50 && (
+                                        <p className="text-[10px] font-bold text-amber-600 mt-1 flex items-center gap-1">
+                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                            </svg>
+                                            Text is still too short for AI scoring (min 50 chars).
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
 
                     {/* Internal Notes */}
                     <div className="mt-4">
