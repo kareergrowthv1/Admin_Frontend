@@ -216,7 +216,10 @@ const Candidates = () => {
     const fetchStatusCounts = async () => {
         try {
             if (!organizationId) return;
-            const response = await axios.get('/candidates/counts', { params: buildCountParams() });
+            const response = await axios.get('/candidates/counts', { 
+                params: buildCountParams(),
+                skipCache: true 
+            });
             if (response.data?.data) {
                 setStatusCounts(response.data.data);
             }
@@ -262,7 +265,10 @@ const Candidates = () => {
             };
 
             const listUrl = '/candidates';
-            const response = await axios.get(listUrl, { params: buildListParams(page, isManualRefresh) });
+            const response = await axios.get(listUrl, { 
+                params: buildListParams(page, isManualRefresh),
+                skipCache: isManualRefresh || !showLoading // Bypass cache on polling or manual refresh
+            });
             const listData = response.data?.content || response.data?.data?.content || response.data?.data || [];
             setCandidates(Array.isArray(listData) ? listData.map(normalizeCandidate) : []);
             setTotal(response.data?.totalElements ?? response.data?.data?.totalElements ?? (Array.isArray(listData) ? listData.length : 0));
