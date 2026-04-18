@@ -5,6 +5,7 @@ import { clearApiCache } from '../../utils/apiCache';
 import { toast } from 'react-hot-toast';
 import { Upload, User, X } from 'lucide-react';
 import PermissionWrapper from '../../components/common/PermissionWrapper';
+import { extractTextFromFile } from '../../utils/resumeExtractor';
 
 const AddCandidate = () => {
     const navigate = useNavigate();
@@ -73,7 +74,8 @@ const AddCandidate = () => {
         current_location: '',
         current_ctc: '',
         expected_ctc: '',
-        academic_year: 'Final Year'
+        academic_year: 'Final Year',
+        extracted_raw_text: ''
     });
 
     const [collegeName, setCollegeName] = useState('');
@@ -274,7 +276,7 @@ const AddCandidate = () => {
         }
     };
 
-    const handleFileChange = (e) => {
+    const handleFileChange = async (e) => {
         const file = e.target.files[0];
         if (file) {
             const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
@@ -288,13 +290,29 @@ const AddCandidate = () => {
                 e.target.value = '';
                 return;
             }
-            setFormData({ ...formData, resume_file: file });
+
+            // Frontend Extraction (Properly done in React)
+            let extractedRawText = '';
+            try {
+                extractedRawText = await extractTextFromFile(file);
+                console.log(`[AddCandidate] Frontend extracted ${extractedRawText.length} characters`);
+            } catch (err) {
+                console.warn('[AddCandidate] Frontend extraction failed:', err);
+            }
+
+            setFormData({ ...formData, resume_file: file, extracted_raw_text: extractedRawText });
         }
     };
 
     const autoFetchCandidate = async (email) => {
-        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
-        if (!organizationId) return;
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            toast.error('Please enter a valid email address');
+            return;
+        }
+        if (!organizationId) {
+            console.error('Organization ID missing in autoFetchCandidate');
+            return;
+        }
 
         setIsFetchingEmail(true);
         try {
@@ -534,6 +552,9 @@ const AddCandidate = () => {
                 if (formData.resume_file) {
                     formDataToSend.append('resumeFile', formData.resume_file);
                 }
+                if (formData.extracted_raw_text) {
+                    formDataToSend.append('extractedText', formData.extracted_raw_text);
+                }
 
                 const step1Res = await axios.post('/candidates', formDataToSend, {
                     headers: { 'Content-Type': 'multipart/form-data' }
@@ -602,6 +623,9 @@ const AddCandidate = () => {
                     extractFd.append('candidateId', candidateId);
                     extractFd.append('positionId', formData.position_id);
                     extractFd.append('organizationId', organizationId);
+                    if (formData.extracted_raw_text) {
+                        extractFd.append('extractedText', formData.extracted_raw_text);
+                    }
                     const token = localStorage.getItem('token');
                     const client = localStorage.getItem('client');
                     const headers = {};
@@ -640,7 +664,8 @@ const AddCandidate = () => {
                 companyName: collegeName || undefined,
                 positionName: formData.position_name || undefined,
                 candidateName: formData.candidate_name || undefined,
-                actorName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Admin'
+                actorName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Admin',
+                resumeText: formData.extracted_raw_text || undefined
             });
             const data = scoreRes.data?.data || {};
             recommendationStatus = data.recommendationStatus || 'INVITED';
@@ -982,27 +1007,37 @@ const AddCandidate = () => {
                             <label className="text-[12px] font-semibold text-slate-700 mb-1.5 block">
                                 Candidate Email <span className="text-red-500">*</span>
                             </label>
-                            <input
-                                type="email"
-                                value={formData.candidate_email}
-                                onChange={(e) => {
-                                    setFormData({ ...formData, candidate_email: e.target.value });
-                                    setExistingCandidateId(null);
-                                    setCandidateNotFound(false);
-                                            setEmailChecked(false);
-                                            if (emailTimeoutRef.current) clearTimeout(emailTimeoutRef.current);
-                                        }}
-                                        onBlur={(e) => {
-                                            const emailValue = e.target.value.trim();
-                                            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                                            if (emailValue && emailRegex.test(emailValue)) {
-                                                autoFetchCandidate(emailValue);
-                                            }
-                                        }}
-                                        className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm shadow-[inset_0_0_3px_rgba(0,0,0,0.1)]"
-                                        placeholder="Enter candidate email"
-                                        required
-                                    />
+                            <div className="relative group">
+                                <input
+                                    type="email"
+                                    value={formData.candidate_email}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, candidate_email: e.target.value });
+                                        setExistingCandidateId(null);
+                                        setCandidateNotFound(false);
+                                        setEmailChecked(false);
+                                        if (emailTimeoutRef.current) clearTimeout(emailTimeoutRef.current);
+                                    }}
+                                    onBlur={(e) => {
+                                        const emailValue = e.target.value.trim();
+                                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                                        if (emailValue && emailRegex.test(emailValue) && !emailChecked) {
+                                            autoFetchCandidate(emailValue);
+                                        }
+                                    }}
+                                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent text-sm shadow-[inset_0_0_3px_rgba(0,0,0,0.1)] pr-16"
+                                    placeholder="Enter candidate email"
+                                    required
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => autoFetchCandidate(formData.candidate_email)}
+                                    disabled={isFetchingEmail || !formData.candidate_email}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-[10px] font-bold bg-slate-100 text-slate-600 rounded hover:bg-blue-600 hover:text-white transition-all disabled:opacity-50"
+                                >
+                                    {isFetchingEmail ? '...' : emailChecked ? 'Checked' : 'Verify'}
+                                </button>
+                            </div>
                                 </div>
                                 <div>
                                     <label className="text-[12px] font-semibold text-slate-700 mb-1.5 block">
@@ -1155,9 +1190,9 @@ const AddCandidate = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
                         </div>
-                        <h3 className="text-xl font-bold text-slate-800 mb-2">Student Not Found</h3>
+                        <h3 className="text-xl font-bold text-slate-800 mb-2">{isCollegeUser ? 'Student' : 'Candidate'} Not Found</h3>
                         <p className="text-slate-500 text-sm leading-relaxed mb-8">
-                            We couldn't find a student with the email <span className="font-bold text-slate-700 tracking-tight">{formData.candidate_email}</span> in your organization database.
+                            We couldn't find a {isCollegeUser ? 'student' : 'candidate'} with the email <span className="font-bold text-slate-700 tracking-tight">{formData.candidate_email}</span> in your organization database.
                         </p>
                         
                         <div className="flex flex-col gap-3">

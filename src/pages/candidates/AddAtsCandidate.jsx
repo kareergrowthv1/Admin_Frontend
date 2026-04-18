@@ -3,8 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import axios from '../../config/axios';
 import { clearApiCache } from '../../utils/apiCache';
 import { toast } from 'react-hot-toast';
-import { Upload, User, X } from 'lucide-react';
+import { Upload, User, X, FileText, CheckCircle2 } from 'lucide-react';
 import PermissionWrapper from '../../components/common/PermissionWrapper';
+import { extractTextFromFile } from '../../utils/resumeExtractor';
 
 const AddAtsCandidate = () => {
     const navigate = useNavigate();
@@ -30,7 +31,8 @@ const AddAtsCandidate = () => {
         current_organization: '',
         current_location: '',
         current_ctc: '',
-        expected_ctc: ''
+        expected_ctc: '',
+        extracted_raw_text: ''
     });
 
     useEffect(() => {
@@ -98,10 +100,24 @@ const AddAtsCandidate = () => {
 
     const handleAtsFileUpload = async (selectedFile) => {
         if (!selectedFile) return;
+        
         setAtsMode('uploading');
         try {
+            // Step 1: Frontend Extraction (Properly done in React)
+            let extractedRawText = '';
+            try {
+                extractedRawText = await extractTextFromFile(selectedFile);
+                console.log(`[AddAtsCandidate] Frontend extracted ${extractedRawText.length} characters`);
+            } catch (err) {
+                console.warn('[AddAtsCandidate] Frontend extraction failed, falling back to backend:', err);
+            }
+
             const fd = new FormData();
             fd.append('file', selectedFile);
+            if (extractedRawText) {
+                fd.append('extractedText', extractedRawText);
+            }
+
             const uploadRes = await axios.post('/admins/ats-candidates/upload', fd, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
@@ -116,6 +132,7 @@ const AddAtsCandidate = () => {
                     total_experience: extracted.total_experience || '',
                     current_organization: extracted.current_organization || '',
                     current_location: extracted.current_location || '',
+                    extracted_raw_text: extractedRawText || extracted.raw_text || '',
                     resume_file: selectedFile
                 }));
                 setSkills(extracted.skills || []);
@@ -176,6 +193,16 @@ const AddAtsCandidate = () => {
             fd.append('current_ctc', formData.current_ctc);
             fd.append('expected_ctc', formData.expected_ctc);
             fd.append('skills', JSON.stringify(skills));
+            
+            // Send the extracted text in extracted_json so backend scoring has it immediately
+            if (formData.extracted_raw_text) {
+                fd.append('extracted_json', JSON.stringify({
+                    raw_text: formData.extracted_raw_text,
+                    skills: skills,
+                    extracted_at: new Date().toISOString()
+                }));
+            }
+
             if (formData.resume_file) {
                 fd.append('resume', formData.resume_file);
             }

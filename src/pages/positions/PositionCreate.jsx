@@ -5,6 +5,7 @@ import axios, { gatewayApi } from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import { jsPDF } from 'jspdf';
 import PermissionWrapper from '../../components/common/PermissionWrapper';
+import { extractTextFromFile } from '../../utils/resumeExtractor';
 
 const PositionCreate = () => {
     const navigate = useNavigate();
@@ -144,10 +145,21 @@ const PositionCreate = () => {
         }));
     };
 
-    const handleFileChange = (e) => {
+    const handleFileChange = async (e) => {
         const file = e.target.files[0];
         if (file && ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type)) {
             setJdFile(file);
+            
+            // Extract text immediately for fast processing/verification
+            try {
+                const toastId = toast.loading('Extracting text from JD...');
+                const text = await extractTextFromFile(file);
+                setForm(prev => ({ ...prev, jobDescription: text }));
+                toast.success('JD text extracted successfully', { id: toastId });
+            } catch (err) {
+                console.error('JD extraction failed:', err);
+                toast.error('Failed to extract text from JD. You can still upload the file.');
+            }
         }
     };
 
@@ -329,7 +341,7 @@ const PositionCreate = () => {
                 jobDescriptionPath: null,
                 expectedStartDate: form.validTill || null,
                 applicationDeadline: form.validTill || null,
-                jobDescriptionText: form.useCustomJD ? form.jobDescription : null,
+                jobDescriptionText: (form.useCustomJD || jdFile) ? form.jobDescription : null,
                 createdBy: user?.id || 'SYSTEM',
                 organizationId: user?.organizationId || localStorage.getItem('organizationId') || ''
             };
