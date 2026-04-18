@@ -53,7 +53,7 @@ export function installGetCache(axiosInstance, fallbackAdapter) {
 
     const promise = runAdapter(config)
       .then((response) => {
-        cache.set(key, { response, ts: Date.now() });
+        cache.set(key, { response, timestamp: Date.now() });
         inFlight.delete(key);
         return response;
       })
