@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import Pagination from '../../components/common/Pagination';
 import PermissionWrapper from '../../components/common/PermissionWrapper';
+import { hasFeaturePermission } from '../../utils/permissionUtils';
 
 const DepartmentsView = () => {
     const navigate = useNavigate();
@@ -194,6 +195,7 @@ const DepartmentsView = () => {
     });
 
     const paginatedData = sortedMainData.slice(page * pageSize, (page + 1) * pageSize);
+    const canManageDepartments = hasFeaturePermission('departments', 'update') || hasFeaturePermission('departments', 'delete');
 
     return (
         <div className="flex flex-col space-y-4 pt-1 pb-4 px-1">
@@ -359,7 +361,7 @@ const DepartmentsView = () => {
 
                 <div className="h-8 w-[1px] bg-slate-200 mx-1"></div>
 
-                <PermissionWrapper feature="attendance" permission="create">
+                <PermissionWrapper feature="departments" permission="create">
                     <button 
                         onClick={() => setIsAddModalOpen(true)}
                         className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-all shadow-md shrink-0 active:scale-95"
@@ -434,16 +436,20 @@ const DepartmentsView = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="relative inline-block" onClick={e => e.stopPropagation()}>
-                                                <button 
-                                                    onClick={(e) => {
-                                                        const rect = e.currentTarget.getBoundingClientRect();
-                                                        setDropdownPos({ top: rect.bottom, buttonRight: window.innerWidth - rect.right });
-                                                        setActiveDropdownId(activeDropdownId === item.id ? null : item.id);
-                                                    }}
-                                                    className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
-                                                >
-                                                    <MoreVertical size={16} />
-                                                </button>
+                                                {canManageDepartments ? (
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            const rect = e.currentTarget.getBoundingClientRect();
+                                                            setDropdownPos({ top: rect.bottom, buttonRight: window.innerWidth - rect.right });
+                                                            setActiveDropdownId(activeDropdownId === item.id ? null : item.id);
+                                                        }}
+                                                        className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
+                                                    >
+                                                        <MoreVertical size={16} />
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-xs text-slate-300">-</span>
+                                                )}
 
                                                 {activeDropdownId === item.id && (
                                                     <div 
@@ -456,18 +462,22 @@ const DepartmentsView = () => {
                                                         }}
                                                         className="w-36 bg-white rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.15)] border border-slate-100 p-1.5 animate-in fade-in zoom-in-95 duration-150"
                                                     >
-                                                        <button 
-                                                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-blue-600 rounded-lg transition-colors"
-                                                        >
-                                                            <Edit2 size={14} />
-                                                            Edit
-                                                        </button>
-                                                        <button 
-                                                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                            Delete
-                                                        </button>
+                                                        <PermissionWrapper feature="departments" permission="update">
+                                                            <button 
+                                                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-blue-600 rounded-lg transition-colors"
+                                                            >
+                                                                <Edit2 size={14} />
+                                                                Edit
+                                                            </button>
+                                                        </PermissionWrapper>
+                                                        <PermissionWrapper feature="departments" permission="delete">
+                                                            <button 
+                                                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                            >
+                                                                <Trash2 size={14} />
+                                                                Delete
+                                                            </button>
+                                                        </PermissionWrapper>
                                                     </div>
                                                 )}
                                             </div>

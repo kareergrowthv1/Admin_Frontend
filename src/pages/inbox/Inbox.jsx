@@ -23,6 +23,7 @@ import {
     ListFilter
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import Pagination from '../../components/common/Pagination';
 
 import { getFeatureDataScope, getLoggedInUserId } from '../../utils/permissionUtils';
 
@@ -43,6 +44,10 @@ const Inbox = () => {
     const [activities, setActivities] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('ALL');
+    const [page, setPage] = useState(0);
+    const pageSize = 10;
+    const [totalElements, setTotalElements] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
     const [user, setUser] = useState(null);
     const [activityCounts, setActivityCounts] = useState({
         ALL: 0,
@@ -87,6 +92,10 @@ const Inbox = () => {
         }
     }, []);
 
+    useEffect(() => {
+        setPage(0);
+    }, [activeTab]);
+
     const getInboxParams = (baseParams) => {
         const params = { ...baseParams };
         const dataScope = getFeatureDataScope('dashboard'); // Backend uses 'dashboard' for activities RBAC
@@ -109,7 +118,7 @@ const Inbox = () => {
 
             return () => clearInterval(interval);
         }
-    }, [user, activeTab]);
+    }, [user, activeTab, page]);
 
     const fetchActivities = async (isManualRefresh = false) => {
         setActivityLoading(true);
@@ -121,12 +130,17 @@ const Inbox = () => {
                     organizationId,
                     activityType: activeTab,
                     hours: 72,
+                    page,
+                    pageSize,
                     ...(isManualRefresh ? { _t: Date.now() } : {})
                 })
             });
 
             if (response.data.success) {
                 setActivities(response.data.data);
+                const pager = response.data.pagination || {};
+                setTotalElements(Number(pager.totalElements || 0));
+                setTotalPages(Number(pager.totalPages || 0));
             }
         } catch (error) {
             console.error('Error fetching activities:', error);
@@ -260,6 +274,9 @@ const Inbox = () => {
         }
     };
 
+    const paginationTotalElements = totalElements > 0 ? totalElements : Number(activityCounts[activeTab] || 0);
+    const paginationTotalPages = totalPages > 0 ? totalPages : Math.ceil(paginationTotalElements / pageSize);
+
     return (
         <div className="flex flex-col h-full bg-transparent overflow-hidden pt-2">
             {/* Tabs matching Candidates/Positions style */}
@@ -271,7 +288,10 @@ const Inbox = () => {
                     return (
                         <button
                             key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
+                            onClick={() => {
+                                setActiveTab(tab.id);
+                                setPage(0);
+                            }}
                             className={`relative pb-2 flex items-center gap-2 transition-all group shrink-0 ${isActive ? 'text-blue-600 font-normal' : 'text-slate-900 font-normal hover:text-slate-900'
                                 }`}
                         >
@@ -549,6 +569,14 @@ const Inbox = () => {
                         </div>
                     </div>
                 )}
+
+                <Pagination
+                    currentPage={page}
+                    totalPages={paginationTotalPages}
+                    onPageChange={setPage}
+                    pageSize={pageSize}
+                    totalElements={paginationTotalElements}
+                />
             </div>
         </div>
     );

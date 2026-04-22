@@ -352,7 +352,7 @@ const Tasks = () => {
                         </div>
                     )}
 
-                    <PermissionWrapper feature="tasks" permission="write">
+                    <PermissionWrapper feature="tasks" permission="create">
                         <button 
                             onClick={() => navigate('/tasks/create')}
                             className="ml-auto flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-all shrink-0 shadow-lg shadow-blue-500/20"

@@ -318,6 +318,33 @@ const formatDate = (dateString) => {
   }
 };
 
+const REPORT_FETCH_DEDUPE_TTL_MS = 5000;
+const reportFetchInFlight = new Map();
+const reportFetchRecent = new Map();
+
+const fetchReportWithDedupe = async (requestKey, fetcher) => {
+  const now = Date.now();
+  const recent = reportFetchRecent.get(requestKey);
+  if (recent && now - recent.ts < REPORT_FETCH_DEDUPE_TTL_MS) {
+    return recent.data;
+  }
+
+  if (reportFetchInFlight.has(requestKey)) {
+    return reportFetchInFlight.get(requestKey);
+  }
+
+  const promise = (async () => {
+    const data = await fetcher();
+    reportFetchRecent.set(requestKey, { ts: Date.now(), data });
+    return data;
+  })().finally(() => {
+    reportFetchInFlight.delete(requestKey);
+  });
+
+  reportFetchInFlight.set(requestKey, promise);
+  return promise;
+};
+
 const getRatingBadge = (rating) => {
   switch (rating?.toLowerCase()) {
     case 'recommended':
@@ -685,30 +712,27 @@ const CandidateReport = () => {
       if (cached) {
         const parsed = JSON.parse(cached);
         setReportData(parsed);
-        hydrateSignedScreenshotAssets(parsed, { positionId, candidateId, clientId })
-          .then((signedVm) => {
-            if (!isCancelledRef.current) setReportData(signedVm);
-          })
-          .catch(() => null);
         // Keep cached view for quick paint, but always refresh from API
         // so newly generated report content (e.g. round transcripts) is not stale.
       }
 
-      // Single API call: fetch only from existing Mongo report by keys.
-      const res = await gatewayApi.get(`/report/get/${positionId}/${candidateId}`, {
-        params: {
-          ...(clientId ? { clientId } : {}),
-        },
-        validateStatus: () => true,
-        timeout: 30 * 1000,
-      });
+      const requestKey = `${positionId}:${candidateId}:${clientId}`;
+      // Single API call with in-flight dedupe for same report key.
+      const res = await fetchReportWithDedupe(requestKey, () =>
+        gatewayApi.get(`/report/get/${positionId}/${candidateId}`, {
+          params: {
+            ...(clientId ? { clientId } : {}),
+          },
+          validateStatus: () => true,
+          timeout: 30 * 1000,
+        })
+      );
 
       if (isCancelledRef.current) return;
 
       if (res.status === 200) {
         const vm = buildReportViewModel(res.data?.data || null, candidateNameParam, positionTitleParam, candidateId);
-        const signedVm = await hydrateSignedScreenshotAssets(vm, { positionId, candidateId, clientId });
-        setReportData(signedVm);
+        setReportData(vm);
         sessionStorage.setItem(reportCacheKey, JSON.stringify(vm));
         return;
       }

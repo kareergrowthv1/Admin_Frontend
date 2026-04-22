@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios, { gatewayApi } from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import { jsPDF } from 'jspdf';
+import ReactDOM from 'react-dom';
 import PermissionWrapper from '../../components/common/PermissionWrapper';
 import { extractTextFromFile } from '../../utils/resumeExtractor';
 
@@ -12,6 +13,7 @@ const PositionCreate = () => {
     const [searchParams] = useSearchParams();
     const positionId = searchParams.get('id');
     const { user } = useSelector(state => state.auth);
+    const [headerNode, setHeaderNode] = useState(null);
     const [loading, setLoading] = useState(false);
     const [jdFile, setJdFile] = useState(null);
     const [position, setPosition] = useState(null);
@@ -40,6 +42,10 @@ const PositionCreate = () => {
             fetchPositionDetails();
         }
     }, [positionId]);
+
+    React.useEffect(() => {
+        setHeaderNode(document.getElementById('header-actions'));
+    }, []);
 
     const fetchPositionDetails = async () => {
         try {
@@ -99,6 +105,7 @@ const PositionCreate = () => {
     };
     const [skillInput, setSkillInput] = useState('');
     const [optionalSkillInput, setOptionalSkillInput] = useState('');
+    const isDraftPosition = !!positionId && String(position?.status || '').toUpperCase() === 'DRAFT';
 
     const domains = [
         'IT',
@@ -166,7 +173,7 @@ const PositionCreate = () => {
     const handleGenerateAISkills = async () => {
         const { jobTitle, domain, experienceFrom, experienceTo } = form;
         if (!jobTitle || !jobTitle.trim()) {
-            toast.error('Please enter Job Title before generating AI skills.');
+            toast.error('Please enter Position Title before generating AI skills.');
             return;
         }
         if (!domain || !domain.trim()) {
@@ -224,7 +231,7 @@ const PositionCreate = () => {
     const handleGenerateJD = async (regenerate = false) => {
         const { jobTitle, domain, experienceFrom, experienceTo, mandatorySkills, optionalSkills } = form;
         if (!jobTitle || !jobTitle.trim()) {
-            toast.error('Please enter Job Title before generating JD.');
+            toast.error('Please enter Position Title before generating JD.');
             return;
         }
         if (!domain || !domain.trim()) {
@@ -310,18 +317,20 @@ const PositionCreate = () => {
         toast.success('Generated JD set as Job Description file. You can submit the form.');
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = async (e, options = {}) => {
+        if (e?.preventDefault) e.preventDefault();
+        const { asDraft = false } = options;
+        const normalizedTitle = String(form.jobTitle || '').trim();
 
-        if (!form.jobTitle) {
-            toast.error('Please enter a Job Title');
+        if (!normalizedTitle) {
+            toast.error('Please enter a Position Title');
             return;
         }
         if (!form.domain) {
             toast.error('Please select a Domain');
             return;
         }
-        if (form.mandatorySkills.length < 2) {
+        if (!asDraft && form.mandatorySkills.length < 2) {
             toast.error('Minimum 2 mandatory skills required');
             return;
         }
@@ -329,7 +338,8 @@ const PositionCreate = () => {
         setLoading(true);
         try {
             const payload = {
-                title: form.jobTitle,
+                title: normalizedTitle,
+                status: asDraft ? 'DRAFT' : 'ACTIVE',
                 companyName: form.companyName || null,
                 domainType: form.domain,
                 minimumExperience: form.experienceFrom,
@@ -385,8 +395,13 @@ const PositionCreate = () => {
                             toast.error('Position saved but JD upload failed. You can upload JD from Edit.');
                         }
                     }
-                    toast.success('Position updated successfully!');
-                    navigate('/admins/positions/setup-interview', { state: { position: positionToUse } });
+                    if (asDraft) {
+                        toast.success('Position saved as draft!');
+                        navigate('/positions');
+                    } else {
+                        toast.success('Position updated successfully!');
+                        navigate('/admins/positions/setup-interview', { state: { position: positionToUse } });
+                    }
                 }
             } else {
                 // Ref flow: 1) POST position 2) POST JD to blob 3) PUT position with path if needed
@@ -428,8 +443,13 @@ const PositionCreate = () => {
                             toast.error('Position created but JD upload failed. You can upload JD from Edit.');
                         }
                     }
-                    toast.success('Position created successfully!');
-                    navigate('/admins/positions/setup-interview', { state: { position: positionToUse } });
+                    if (asDraft) {
+                        toast.success('Position saved as draft!');
+                        navigate('/positions');
+                    } else {
+                        toast.success('Position created successfully!');
+                        navigate('/admins/positions/setup-interview', { state: { position: positionToUse } });
+                    }
                 }
             }
         } catch (error) {
@@ -466,51 +486,51 @@ const PositionCreate = () => {
         setIsEditingJD(false);
     };
 
-    return (
-        <div className="space-y-0">
-            {/* Top breadcrumb + action buttons */}
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-400">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                    <span className="hover:text-slate-600 cursor-pointer" onClick={() => navigate('/positions')}>Back</span>
-                    <span className="mx-1 text-slate-200">•</span>
-                    <span className="hover:text-slate-600 cursor-pointer" onClick={() => navigate('/positions')}>Position List</span>
-                    <span className="mx-1 text-slate-200">/</span>
-                    <span className="text-slate-800 font-bold">{positionId ? 'Edit Position' : 'Create Position'}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                    <button className="h-9 w-9 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50 transition-colors">
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
-                        </svg>
-                    </button>
-                    <button className="px-5 py-2 text-xs font-bold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
+    const headerActions = useMemo(() => {
+        if (!headerNode) return null;
+
+        return ReactDOM.createPortal(
+            <div className="flex items-center gap-3">
+                <PermissionWrapper feature="positions" permission={positionId ? 'update' : 'create'}>
+                    <button
+                        type="button"
+                        onClick={(e) => handleSubmit(e, { asDraft: true })}
+                        disabled={loading}
+                        className="px-5 py-2 text-xs font-bold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                         Save as Draft
                     </button>
-                    <PermissionWrapper feature="positions" permission={positionId ? "update" : "write"}>
-                        <button
-                            onClick={handleSubmit}
-                            disabled={loading}
-                            className="px-6 py-2 text-xs font-bold rounded-lg bg-gradient-to-b from-blue-600 to-blue-700 text-white hover:brightness-110 shadow-lg shadow-blue-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {loading ? (positionId ? 'Updating...' : 'Creating...') : (positionId ? 'Update Position' : 'Create Position & Setup Interview')}
-                        </button>
-                    </PermissionWrapper>
-                </div>
-            </div>
+                </PermissionWrapper>
+
+                <PermissionWrapper feature="positions" permission={positionId ? 'update' : 'create'}>
+                    <button
+                        type="button"
+                        onClick={handleSubmit}
+                        disabled={loading}
+                        className="px-6 py-2 text-xs font-bold rounded-lg bg-gradient-to-b from-blue-600 to-blue-700 text-white hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {loading ? (positionId ? 'Updating...' : 'Creating...') : ((positionId && !isDraftPosition) ? 'Update Position & Setup Interview' : 'Create Position & Setup Interview')}
+                    </button>
+                </PermissionWrapper>
+            </div>,
+            headerNode
+        );
+    }, [loading, positionId, isDraftPosition, headerNode, handleSubmit]);
+
+    return (
+        <div className="space-y-0">
+            {headerActions}
 
             {/* Main form */}
             <form onSubmit={handleSubmit} className="space-y-8">
                 {/* Position Details Section */}
                 <div>
-                    {/* Job Title and Company Name */}
+                    {/* Position Title and Company Name */}
                     <div className="grid grid-cols-2 gap-4 mb-5">
-                        {/* Job Title */}
+                        {/* Position Title */}
                         <div>
                             <label className="text-[12px] font-semibold text-slate-700 mb-1.5 block">
-                                Job Title <span className="text-red-500">*</span>
+                                Position Title <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="text"
@@ -608,7 +628,7 @@ const PositionCreate = () => {
 
                     {/* AI Buttons */}
                     <div className="flex gap-3 mb-5">
-                        <PermissionWrapper feature="positions" permission={positionId ? "update" : "write"}>
+                        <PermissionWrapper feature="positions" permission={positionId ? "update" : "create"}>
                             <button
                                 type="button"
                                 onClick={handleGenerateAISkills}
@@ -625,7 +645,7 @@ const PositionCreate = () => {
                                 {isAISkillsLoading ? 'Generating Skills...' : 'Generate AI Skills'}
                             </button>
                         </PermissionWrapper>
-                        <PermissionWrapper feature="positions" permission={positionId ? "update" : "write"}>
+                        <PermissionWrapper feature="positions" permission={positionId ? "update" : "create"}>
                             <button
                                 type="button"
                                 onClick={() => jdPanelData ? (setShowJDSidebar(true), setIsEditingJD(false)) : handleGenerateJD()}

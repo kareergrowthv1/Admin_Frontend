@@ -535,7 +535,7 @@ const AtsCandidates = () => {
                         )}
                     </div>
 
-                    <PermissionWrapper feature="candidates" permission="write">
+                    <PermissionWrapper feature="candidates" permission="create">
                         <button
                             onClick={() => setIsAddModalOpen(true)}
                             className="px-5 py-2.5 text-[11px] font-medium tracking-wide rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all flex items-center gap-2 shadow-md shadow-blue-100 active:scale-95"

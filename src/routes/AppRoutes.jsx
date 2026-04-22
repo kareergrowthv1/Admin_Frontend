@@ -181,9 +181,34 @@ const AppRoutes = () => {
               <Layout><DepartmentsView /></Layout>
             </FeatureRoute>
           } />
+          <Route path="/department" element={
+            <FeatureRoute featureKey="departments" requiredSystem="college">
+              <Layout><DepartmentsView /></Layout>
+            </FeatureRoute>
+          } />
+          <Route path="/branch" element={
+            <FeatureRoute featureKey="branches" requiredSystem="college">
+              <Layout><BranchesView /></Layout>
+            </FeatureRoute>
+          } />
+          <Route path="/subjects" element={
+            <FeatureRoute featureKey="subjects" requiredSystem="college">
+              <Layout><SubjectsView /></Layout>
+            </FeatureRoute>
+          } />
+          <Route path="/attendance/branches" element={
+            <FeatureRoute featureKey="branches" requiredSystem="college">
+              <Layout><BranchesView /></Layout>
+            </FeatureRoute>
+          } />
           <Route path="/attendance/branches/:deptId" element={
             <FeatureRoute featureKey="attendance" requiredSystem="college">
               <Layout><BranchesView /></Layout>
+            </FeatureRoute>
+          } />
+          <Route path="/attendance/subjects" element={
+            <FeatureRoute featureKey="subjects" requiredSystem="college">
+              <Layout><SubjectsView /></Layout>
             </FeatureRoute>
           } />
           <Route path="/attendance/:deptId/:branchId/subjects" element={

@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { useParams, useNavigate } from 'react-router-dom';
 import Pagination from '../../components/common/Pagination';
 import PermissionWrapper from '../../components/common/PermissionWrapper';
+import { hasFeaturePermission } from '../../utils/permissionUtils';
 
 const BranchesView = () => {
     const { deptId } = useParams();
@@ -94,11 +95,15 @@ const BranchesView = () => {
             const scope = admin_user.dataScope || 'ALL';
             const userId = admin_user.id;
             
-            const endpoint = scope === 'OWN' 
-                ? `/attendance/branches/${deptId}/${userId}`
-                : `/attendance/branches/${deptId}`;
+            let endpoint = '/attendance/branches';
+            if (deptId) {
+                endpoint = scope === 'OWN'
+                    ? `/attendance/branches/${deptId}/${userId}`
+                    : `/attendance/branches/${deptId}`;
+            }
                 
-            const res = await axios.get(endpoint);
+            const reqConfig = organizationId ? { params: { organizationId } } : undefined;
+            const res = await axios.get(endpoint, reqConfig);
             const branches = res?.data?.data || [];
             
             setMetadata({
@@ -149,10 +154,14 @@ const BranchesView = () => {
             const scope = admin_user.dataScope || 'ALL';
             const userId = admin_user.id;
             
-            const endpoint = scope === 'OWN' 
-                ? `/attendance/branches/${deptId}/${userId}`
-                : `/attendance/branches/${deptId}`;
+            let endpoint = '/attendance/branches';
+            if (deptId) {
+                endpoint = scope === 'OWN'
+                    ? `/attendance/branches/${deptId}/${userId}`
+                    : `/attendance/branches/${deptId}`;
+            }
                 
+            if (organizationId) params.organizationId = organizationId;
             const res = await axios.get(endpoint, Object.keys(params).length > 0 ? { params } : undefined);
             const branches = res?.data?.data || [];
             setData(branches);
@@ -220,6 +229,7 @@ const BranchesView = () => {
     });
 
     const paginatedData = sortedMainData.slice(page * pageSize, (page + 1) * pageSize);
+    const canManageBranches = hasFeaturePermission('branches', 'update') || hasFeaturePermission('branches', 'delete');
 
     return (
         <div className="flex flex-col space-y-4 pt-1 pb-4 px-1">
@@ -407,7 +417,7 @@ const BranchesView = () => {
 
                 <div className="h-8 w-[1px] bg-slate-200 mx-1"></div>
 
-                <PermissionWrapper feature="attendance" permission="create">
+                <PermissionWrapper feature="branches" permission="create">
                     <button 
                         onClick={() => setIsBranchModalOpen(true)}
                         className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-all shadow-md shrink-0 active:scale-95"
@@ -426,6 +436,7 @@ const BranchesView = () => {
                             <tr className="bg-slate-50/50 border-b border-slate-200">
                                 <th className="pl-8 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Code</th>
                                 <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Branch Name</th>
+                                <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Department</th>
                                 <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Batch</th>
                                 <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Incharge Name</th>
                                 <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Official Email</th>
@@ -445,13 +456,24 @@ const BranchesView = () => {
                                     <tr 
                                         key={item.id} 
                                         className="hover:bg-slate-100/40 transition-colors group cursor-pointer"
-                                        onClick={() => navigate(`/attendance/subjects/${deptId}/${item.id}`)}
+                                        onClick={() => navigate(`/attendance/subjects/${item.department_id || deptId}/${item.id}`)}
                                     >
                                         <td className="pl-8 py-4 whitespace-nowrap">
                                             <span className="text-xs text-black font-normal tracking-wider">{getDisplayCode(item)}</span>
                                         </td>
                                         <td className="px-4 py-4">
-                                            <span className="text-sm text-black font-normal">{item.name}</span>
+                                            <div className="flex flex-col gap-0">
+                                                <span className="text-sm text-black font-normal">{item.name}</span>
+                                                <span className="text-[11px] text-slate-500 font-normal">
+                                                    {item.start_year && item.end_year ? `${item.start_year} - ${item.end_year}` : '-'}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-4">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm text-black font-normal">{item.department_name || '-'}</span>
+                                                <span className="text-[10px] text-slate-400 font-normal">{item.department_code || '-'}</span>
+                                            </div>
                                         </td>
                                         <td className="px-4 py-4">
                                             <span className="text-xs text-slate-600 font-normal tracking-tight">
@@ -488,16 +510,20 @@ const BranchesView = () => {
                                         </td>
                                         <td className="px-5 py-4 text-right">
                                             <div className="relative inline-block" onClick={e => e.stopPropagation()}>
-                                                <button 
-                                                    onClick={(e) => {
-                                                        const rect = e.currentTarget.getBoundingClientRect();
-                                                        setDropdownPos({ top: rect.bottom, buttonRight: window.innerWidth - rect.right });
-                                                        setActiveDropdownId(activeDropdownId === item.id ? null : item.id);
-                                                    }}
-                                                    className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
-                                                >
-                                                    <MoreVertical size={16} />
-                                                </button>
+                                                {canManageBranches ? (
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            const rect = e.currentTarget.getBoundingClientRect();
+                                                            setDropdownPos({ top: rect.bottom, buttonRight: window.innerWidth - rect.right });
+                                                            setActiveDropdownId(activeDropdownId === item.id ? null : item.id);
+                                                        }}
+                                                        className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
+                                                    >
+                                                        <MoreVertical size={16} />
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-xs text-slate-300">-</span>
+                                                )}
 
                                                 {activeDropdownId === item.id && (
                                                     <div 
@@ -510,18 +536,22 @@ const BranchesView = () => {
                                                         }}
                                                         className="w-36 bg-white rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.15)] border border-slate-100 p-1.5 animate-in fade-in zoom-in-95 duration-150"
                                                     >
-                                                        <button 
-                                                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-blue-600 rounded-lg transition-colors"
-                                                        >
-                                                            <Edit2 size={14} />
-                                                            Edit
-                                                        </button>
-                                                        <button 
-                                                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                            Delete
-                                                        </button>
+                                                        <PermissionWrapper feature="branches" permission="update">
+                                                            <button 
+                                                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-blue-600 rounded-lg transition-colors"
+                                                            >
+                                                                <Edit2 size={14} />
+                                                                Edit
+                                                            </button>
+                                                        </PermissionWrapper>
+                                                        <PermissionWrapper feature="branches" permission="delete">
+                                                            <button 
+                                                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                            >
+                                                                <Trash2 size={14} />
+                                                                Delete
+                                                            </button>
+                                                        </PermissionWrapper>
                                                     </div>
                                                 )}
                                             </div>
@@ -530,7 +560,7 @@ const BranchesView = () => {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="9" className="px-6 py-12 text-center text-slate-400 italic font-medium">No branches found.</td>
+                                    <td colSpan="10" className="px-6 py-12 text-center text-slate-400 italic font-medium">No branches found.</td>
                                 </tr>
                             )}
                         </tbody>

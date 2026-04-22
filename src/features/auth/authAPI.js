@@ -78,4 +78,5 @@ export const authAPI = {
   // Updated to use AdminBackend via Gateway for UI testing (OTP in response)
   requestPasswordReset: (email) => axios.post('/admins/forgot-password', { email }),
   resetPassword: (payload) => axios.post('/admins/reset-password', payload),
+  changePassword: (payload) => axios.post(`${AUTH_API_BASE_URL}/auth-session/change-password`, payload),
 };

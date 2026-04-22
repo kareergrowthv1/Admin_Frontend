@@ -136,7 +136,7 @@ const ProgramCreate = () => {
 
                 {/* Bottom Action Button */}
                 <div className="pt-6 flex justify-start">
-                    <PermissionWrapper feature="attendance" permission="write">
+                    <PermissionWrapper feature="attendance" permission="create">
                         <button
                             onClick={handleSubmit}
                             disabled={loading}
