@@ -282,7 +282,7 @@ const Positions = () => {
             'ACTIVE': 'bg-green-50 text-green-700 border-green-200',
             'ON_HOLD': 'bg-blue-50 text-blue-700 border-blue-200',
             'CLOSED': 'bg-red-50 text-red-700 border-red-200',
-            'DRAFT': 'bg-purple-50 text-purple-700 border-purple-200',
+            'DRAFT': 'bg-orange-50 text-orange-600 border-orange-300',
             'EXPIRED': 'bg-red-50 text-red-700 border-red-200',
             'INACTIVE': 'bg-yellow-50 text-yellow-700 border-yellow-200'
         };
@@ -549,7 +549,7 @@ const Positions = () => {
                     </div>
 
                     {/* Create Position button */}
-                    <PermissionWrapper feature="positions" permission="write">
+                    <PermissionWrapper feature="positions" permission="create">
                         <button
                             onClick={() => navigate('/position/create')}
                             className="ml-auto flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-all shrink-0"
@@ -699,57 +699,70 @@ const Positions = () => {
                                             <span className="text-xs text-black whitespace-nowrap">{formatDate(position.createdAt)}</span>
                                         </td>
                                         <td className="px-2 py-4 text-center relative">
-                                            <button
-                                                onClick={() => setActiveDropdownId(activeDropdownId === position.id ? null : position.id)}
-                                                className={`p-2 rounded-full transition-all ${activeDropdownId === position.id ? 'bg-slate-100 text-blue-600' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
-                                            >
-                                                <svg className="w-5 h-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                                                </svg>
-                                            </button>
-
-                                            {activeDropdownId === position.id && (
-                                                <div
-                                                    ref={dropdownRef}
-                                                    className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in duration-200"
-                                                >
+                                            {position.status === 'DRAFT' ? (
+                                                <PermissionWrapper feature="positions" permission="update">
                                                     <button
-                                                        onClick={() => {
-                                                            navigate(`/position/view/${position.id}`);
-                                                        }}
-                                                        className="w-full px-4 py-2.5 text-left text-[11px] font-normal text-black hover:bg-slate-50 flex items-center gap-2"
+                                                        onClick={() => navigate(`/position/create?id=${position.id}`)}
+                                                        className="text-[12px] font-normal text-blue-600 hover:text-blue-700 hover:underline transition-colors"
                                                     >
-                                                        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                        </svg>
-                                                        View Details
+                                                        Edit
                                                     </button>
-                                                    {position.status !== 'CLOSED' && (
-                                                        <PermissionWrapper feature="positions" permission="update">
+                                                </PermissionWrapper>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        onClick={() => setActiveDropdownId(activeDropdownId === position.id ? null : position.id)}
+                                                        className={`p-2 rounded-full transition-all ${activeDropdownId === position.id ? 'bg-slate-100 text-blue-600' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+                                                    >
+                                                        <svg className="w-5 h-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                                                        </svg>
+                                                    </button>
+
+                                                    {activeDropdownId === position.id && (
+                                                        <div
+                                                            ref={dropdownRef}
+                                                            className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-xl border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in duration-200"
+                                                        >
                                                             <button
-                                                                onClick={() => navigate(`/position/create?id=${position.id}`)}
+                                                                onClick={() => {
+                                                                    navigate(`/position/view/${position.id}`);
+                                                                }}
                                                                 className="w-full px-4 py-2.5 text-left text-[11px] font-normal text-black hover:bg-slate-50 flex items-center gap-2"
                                                             >
                                                                 <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                                                 </svg>
-                                                                Edit Position
+                                                                View Details
                                                             </button>
-                                                        </PermissionWrapper>
+                                                            {position.status !== 'CLOSED' && (
+                                                                <PermissionWrapper feature="positions" permission="update">
+                                                                    <button
+                                                                        onClick={() => navigate(`/position/create?id=${position.id}`)}
+                                                                        className="w-full px-4 py-2.5 text-left text-[11px] font-normal text-black hover:bg-slate-50 flex items-center gap-2"
+                                                                    >
+                                                                        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                                        </svg>
+                                                                        Edit Position
+                                                                    </button>
+                                                                </PermissionWrapper>
+                                                            )}
+                                                            <button
+                                                                onClick={() => openPublicLinkSettings(position)}
+                                                                disabled={generatingLink}
+                                                                className="w-full px-4 py-2.5 text-left text-[11px] font-normal text-black hover:bg-slate-50 flex items-center gap-2 disabled:opacity-50"
+                                                            >
+                                                                <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" />
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 015.656 0l4 4a4 4 0 01-5.656 5.656l-1.101-1.101" />
+                                                                </svg>
+                                                                Generate Public Link
+                                                            </button>
+                                                        </div>
                                                     )}
-                                                    <button
-                                                        onClick={() => openPublicLinkSettings(position)}
-                                                        disabled={generatingLink}
-                                                        className="w-full px-4 py-2.5 text-left text-[11px] font-normal text-black hover:bg-slate-50 flex items-center gap-2 disabled:opacity-50"
-                                                    >
-                                                        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" />
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 015.656 0l4 4a4 4 0 01-5.656 5.656l-1.101-1.101" />
-                                                        </svg>
-                                                        Generate Public Link
-                                                    </button>
-                                                </div>
+                                                </>
                                             )}
                                         </td>
                                     </tr>

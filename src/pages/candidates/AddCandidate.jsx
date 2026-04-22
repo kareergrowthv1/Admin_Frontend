@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import axios, { candidateApi } from '../../config/axios';
+import axios, { candidateApi, gatewayApi } from '../../config/axios';
 import { clearApiCache } from '../../utils/apiCache';
 import { toast } from 'react-hot-toast';
 import { Upload, User, X } from 'lucide-react';
@@ -183,7 +183,7 @@ const AddCandidate = () => {
             
             if (isCollege) {
                 const response = await axios.get('/admins/positions', {
-                    params: { page: 0, size: 1000 }
+                    params: { page: 0, size: 1000, status: 'ACTIVE' }
                 });
                 const responseData = response.data || {};
                 const rawPositions = responseData.content || responseData.data || responseData.positions || [];
@@ -193,9 +193,9 @@ const AddCandidate = () => {
                         title: position.title || position.position_name,
                         code: position.code || position.position_code,
                         createdAt: position.createdAt || position.created_at,
-                        questionSetCount: position.questionSetCount ?? 0
+                        status: position.status
                     }))
-                    .filter((position) => position.id && position.title && (position.questionSetCount || 0) > 0);
+                    .filter((position) => position.id && position.title);
     
                 normalized.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
                 setPositions(normalized);
@@ -262,16 +262,32 @@ const AddCandidate = () => {
         }
     };
 
-    const handlePositionChange = (e) => {
-        const selectedPosition = positions.find(p => p.id === e.target.value);
+    const handlePositionChange = async (e) => {
+        const selectedId = e.target.value;
+        const selectedPosition = positions.find(p => p.id === selectedId);
+        let positionName = selectedPosition?.title || '';
+
+        if (selectedId) {
+            try {
+                const positionRes = await axios.get(`/admins/positions/${selectedId}`);
+                const positionData = positionRes?.data?.data;
+                if (positionData?.title) {
+                    positionName = positionData.title;
+                }
+            } catch (err) {
+                console.warn('Failed to fetch position details by id:', err?.response?.data?.message || err.message);
+            }
+        }
+
         setFormData({
             ...formData,
-            position_id: e.target.value,
-            position_name: selectedPosition?.title || '',
+            position_id: selectedId,
+            position_name: positionName,
             question_set_id: ''
         });
-        if (e.target.value) {
-            fetchQuestionSets(e.target.value);
+
+        if (selectedId) {
+            fetchQuestionSets(selectedId);
         } else {
             setQuestionSets([]);
         }
@@ -659,13 +675,32 @@ const AddCandidate = () => {
         }
 
         // ──────────────────────────────────────────────────────────────────
-        // STEP 2.5: POST /position-candidates/score-resume (Resume ATS)
-        // Saves score, sets status from AI thresholds (INVITED / RESUME_REJECTED), creates private link if INVITED.
-        // Show score and status in UI immediately (no wait).
+        // STEP 2.5: Direct Streaming scoring with JD+Resume text, then finalize in AdminBackend.
         // ──────────────────────────────────────────────────────────────────
         let recommendationStatus = 'INVITED';
         try {
-            const scoreRes = await axios.post('/position-candidates/score-resume', {
+            const scoreInputRes = await axios.post('/position-candidates/score-input', {
+                positionId: formData.position_id,
+                candidateId,
+                resumeText: formData.extracted_raw_text || undefined
+            });
+            const scoreInput = scoreInputRes.data?.data || {};
+            const jobDescriptionText = String(scoreInput.jobDescriptionText || '').trim();
+            const resumeText = String(scoreInput.resumeText || '').trim();
+
+            if (jobDescriptionText.length < 20 || resumeText.length < 50) {
+                throw new Error('JD/Resume extracted text is insufficient for AI scoring');
+            }
+
+            const streamingRes = await gatewayApi.post('/resume-ats/calculate-score', {
+                jobDescriptionText,
+                resumeText
+            });
+
+            const overallScore = streamingRes.data?.overallScore;
+            const categoryScores = streamingRes.data?.categoryScores || {};
+
+            const scoreRes = await axios.post('/position-candidates/finalize-resume-score', {
                 positionCandidateId,
                 candidateId,
                 positionId: formData.position_id,
@@ -674,7 +709,8 @@ const AddCandidate = () => {
                 positionName: formData.position_name || undefined,
                 candidateName: formData.candidate_name || undefined,
                 actorName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Admin',
-                resumeText: formData.extracted_raw_text || undefined
+                overallScore,
+                categoryScores
             });
             const data = scoreRes.data?.data || {};
             recommendationStatus = data.recommendationStatus || 'INVITED';
@@ -688,37 +724,9 @@ const AddCandidate = () => {
         }
 
         // ──────────────────────────────────────────────────────────────────
-        // STEP 3: POST /ai-assistant/schedule-interview (only if INVITED — private link already saved by backend)
-        // Reference: same as ref; invite email / link sent only when status is INVITED.
+        // STEP 3: No extra schedule-interview call.
+        // finalize-resume-score already saves score, updates status, prepares link, and sends invite when INVITED.
         // ──────────────────────────────────────────────────────────────────
-        if (recommendationStatus === 'INVITED') {
-            try {
-                const clientId = localStorage.getItem('client') || '';
-                const step3Payload = {
-                    candidateId,
-                    email: formData.candidate_email,
-                    positionId: formData.position_id,
-                    questionSetId: formData.question_set_id,
-                    clientId,
-                    interviewPlatform: 'BROWSER',
-                    linkActiveAt,
-                    linkExpiresAt,
-                    createdBy: userId,
-                    sendInviteBy: 'EMAIL',
-                    candidateName: formData.candidate_name,
-                    companyName: collegeName,
-                    organizationId,
-                    positionName: formData.position_name
-                };
-                await axios.post('/ai-assistant/schedule-interview', step3Payload);
-                console.log('✅ Step 3 (schedule-interview) OK');
-            } catch (err) {
-                const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to schedule interview';
-                toast.error(msg, { duration: 6000 });
-                setLoading(false);
-                return;
-            }
-        }
 
         // ──────────────────────────────────────────────────────────────────
         // STEP 4: POST /candidates/assessment-summaries
@@ -837,7 +845,7 @@ const AddCandidate = () => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
                         </svg>
                     </button>
-                    <PermissionWrapper feature="candidates" permission="write">
+                    <PermissionWrapper feature="candidates" permission="create">
                         <button
                             type="button"
                             onClick={handleGeneratePublicLink}
@@ -847,7 +855,7 @@ const AddCandidate = () => {
                             {loading ? 'Loading...' : 'Generate Public Link'}
                         </button>
                     </PermissionWrapper>
-                    <PermissionWrapper feature="candidates" permission="write">
+                    <PermissionWrapper feature="candidates" permission="create">
                         <button
                             onClick={handleSubmit}
                             disabled={loading}

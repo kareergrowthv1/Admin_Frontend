@@ -31,7 +31,7 @@ function App() {
     <Provider store={store}>
       <AppInit />
       <Toaster
-        position="top-right"
+        position="bottom-right"
         toastOptions={{
           duration: 4000,
           style: {

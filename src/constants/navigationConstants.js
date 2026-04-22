@@ -16,7 +16,16 @@ export const COLLEGE_ADMIN_NAVIGATION = [
             { name: 'POSITIONS', path: '/positions', icon: 'M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.247-.604-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
             { name: 'CANDIDATES', path: '/candidates', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z' },
             { name: 'STUDENTS', path: '/students', icon: 'M12 14l9-5-9-5-9 5 9 5z M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z' },
-            { name: 'ATTENDANCE', path: '/attendance', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
+            {
+                name: 'ATTENDENCE',
+                path: '/attendance',
+                icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+                children: [
+                    { name: 'DEPARTMENT', path: '/department' },
+                    { name: 'BRANCH', path: '/branch' },
+                    { name: 'SUBJECTS', path: '/subjects' },
+                ]
+            },
             { name: 'TASKS', path: '/tasks', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' },
         ]
     },
@@ -79,12 +88,17 @@ export const getNavigationForRole = (isCollege) => {
 // null = always visible (no permission gate).
 export const NAV_PERMISSION_MAP = {
     '/dashboard': null,       // Always visible — core landing page
-    '/inbox': null,           // Always visible — core communication hub
+    '/inbox': 'inbox',
     '/profile': null,         // Always visible — personal account page
-    '/settings': null,        // Always visible — account & org settings
+    '/settings': 'settings',
     '/candidates': 'candidates',
     '/students': 'students',
     '/attendance': 'attendance',
+    '/department': 'departments',
+    '/branch': 'branches',
+    '/subjects': 'subjects',
+    '/attendance/branches': 'branches',
+    '/attendance/subjects': 'subjects',
     '/tasks': 'tasks',
     '/team': 'myTeam',
     '/positions': 'positions',

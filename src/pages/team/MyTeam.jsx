@@ -20,6 +20,7 @@ const MyTeam = ({ defaultTab = 'members', hideTabs = false }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [showAddModal, setShowAddModal] = useState(null); // 'member', 'role', or null
     const [openMenuId, setOpenMenuId] = useState(null);
+    const [permissionsModalRole, setPermissionsModalRole] = useState(null);
     const [currentPage, setCurrentPage] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     
@@ -160,6 +161,70 @@ const MyTeam = ({ defaultTab = 'members', hideTabs = false }) => {
 
     const paginatedData = filteredData.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
     const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+    const getUniqueRolePermissions = (role) => {
+        const grouped = new Map();
+        const scopesByFeature = new Map();
+
+        (role?.permissions_scopes || []).forEach((entry) => {
+            const featureName = entry?.feature_name || 'Unknown Feature';
+            const featureKey = featureName.toLowerCase();
+
+            if (!grouped.has(featureKey)) {
+                grouped.set(featureKey, {
+                    featureName,
+                    permissions: {
+                        read: false,
+                        write: false,
+                        update: false,
+                        delete: false,
+                        export: false,
+                        import: false
+                    },
+                    dashboardOptions: {
+                        dashboard: false,
+                        inbox: false
+                    }
+                });
+            }
+
+            const current = grouped.get(featureKey);
+            const entryPerms = entry?.permissions || {};
+
+            current.permissions.read = current.permissions.read || Boolean(entryPerms.read);
+            current.permissions.write = current.permissions.write || Boolean(entryPerms.write);
+            current.permissions.update = current.permissions.update || Boolean(entryPerms.update);
+            current.permissions.delete = current.permissions.delete || Boolean(entryPerms.delete);
+            current.permissions.export = current.permissions.export || Boolean(entryPerms.export);
+            current.permissions.import = current.permissions.import || Boolean(entryPerms.import);
+
+            const dash = entry?.dashboard_options || {};
+            current.dashboardOptions.dashboard = current.dashboardOptions.dashboard || Boolean(dash.dashboard);
+            current.dashboardOptions.inbox = current.dashboardOptions.inbox || Boolean(dash.inbox);
+
+            if (!scopesByFeature.has(featureKey)) {
+                scopesByFeature.set(featureKey, new Set());
+            }
+            if (entry?.data_scope) {
+                scopesByFeature.get(featureKey).add(String(entry.data_scope).toUpperCase());
+            }
+        });
+
+        return Array.from(grouped.entries()).map(([featureKey, value]) => ({
+            ...value,
+            scopes: Array.from(scopesByFeature.get(featureKey) || [])
+        }));
+    };
+
+    const getRoleCreatorName = (createdById) => {
+        if (!createdById) return 'N/A';
+
+        const creator = users.find((user) => String(user.id) === String(createdById));
+        if (!creator) return 'Unknown User';
+
+        const fullName = `${creator.first_name || ''} ${creator.last_name || ''}`.trim();
+        return fullName || creator.email || creator.username || 'Unknown User';
+    };
 
     return (
         <div className="space-y-6 pt-2 pb-12">
@@ -317,7 +382,7 @@ const MyTeam = ({ defaultTab = 'members', hideTabs = false }) => {
                     </button>
 
                     {activeTab === 'members' && (
-                        <PermissionWrapper feature="myTeam" permission="write">
+                        <PermissionWrapper feature="myTeam" permission="create">
                             <button 
                                 onClick={() => setShowAddModal('member')}
                                 className="flex items-center gap-2 px-5 py-2.5 text-[11px] font-bold tracking-wide rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-md shadow-blue-200 active:scale-95"
@@ -329,7 +394,7 @@ const MyTeam = ({ defaultTab = 'members', hideTabs = false }) => {
                     )}
 
                     {activeTab === 'roles' && (
-                        <PermissionWrapper feature="roles" permission="write">
+                        <PermissionWrapper feature="roles" permission="create">
                             <button 
                                 onClick={() => navigate('/roles/new')}
                                 className="flex items-center gap-2 px-5 py-2.5 text-[11px] font-bold tracking-wide rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-md shadow-blue-200 active:scale-95"
@@ -344,7 +409,7 @@ const MyTeam = ({ defaultTab = 'members', hideTabs = false }) => {
         </div>
 
             {/* Table Container */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-[0_1px_4px_rgba(0,0,0,0.05)] overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-[0_1px_4px_rgba(0,0,0,0.05)] overflow-visible">
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-slate-50/50 border-b border-slate-200">
@@ -362,10 +427,11 @@ const MyTeam = ({ defaultTab = 'members', hideTabs = false }) => {
                                 </>
                             ) : (
                                 <>
-                                    <th className="pl-8 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Role Name</th>
-                                    <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Code</th>
-                                    <th className="px-6 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-left">Permissions</th>
-                                    <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Created Date</th>
+                                    <th className="pl-8 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Code</th>
+                                    <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-left">Role Name</th>
+                                    <th className="px-6 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-left">Access Details</th>
+                                    <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Created By</th>
+                                    <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Date</th>
                                     <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Actions</th>
                                 </>
                             )}
@@ -462,43 +528,28 @@ const MyTeam = ({ defaultTab = 'members', hideTabs = false }) => {
                                     ) : (
                                         <>
                                             <td className="pl-8 py-4">
-                                                <div className="text-sm text-black group-hover:text-blue-600 transition-colors">{item.name}</div>
-                                            </td>
-                                            <td className="px-4 py-4 text-center">
                                                 <span className="text-xs font-normal text-black uppercase tracking-tight">{item.code}</span>
                                             </td>
-                                            <td className="px-6 py-4 text-left max-w-[300px]">
-                                                {(() => {
-                                                    const permsArray = item.permissions_scopes?.map(s => {
-                                                        const activePerms = [];
-                                                        if (s.permissions.read) activePerms.push('R');
-                                                        if (s.permissions.write) activePerms.push('W');
-                                                        if (s.permissions.update) activePerms.push('U');
-                                                        if (s.permissions.delete) activePerms.push('D');
-                                                        if (s.permissions.export) activePerms.push('E');
-                                                        if (s.permissions.import) activePerms.push('I');
-                                                        
-                                                        if (activePerms.length > 0) {
-                                                            if (s.data_scope) activePerms.push(s.data_scope.toLowerCase());
-                                                            return `${s.feature_name} (${activePerms.join(',')})`;
-                                                        } else if (s.dashboard_options) {
-                                                            const activeDash = Object.entries(s.dashboard_options).filter(([k,v]) => v).map(([k]) => k.replace('_', ' '));
-                                                            if (activeDash.length > 0) {
-                                                                return `${s.feature_name} (${activeDash.join(', ')})`;
-                                                            }
-                                                        }
-                                                        return null;
-                                                    }).filter(Boolean) || [];
-                                                    const permString = permsArray.length > 0 ? permsArray.join(', ') : 'No Permissions';
-                                                    return (
-                                                        <div 
-                                                            className="text-[13px] text-slate-600 truncate group-hover:text-slate-900 transition-colors cursor-default" 
-                                                            title={permString}
-                                                        >
-                                                            {permString}
-                                                        </div>
-                                                    );
-                                                })()}
+                                            <td className="px-4 py-4 text-left">
+                                                <div className="text-sm text-black group-hover:text-blue-600 transition-colors">{item.name}</div>
+                                            </td>
+                                            <td className="px-6 py-4 text-left">
+                                                {item.permissions_scopes?.length ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPermissionsModalRole(item)}
+                                                        className="text-[13px] font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                                                    >
+                                                        View Permissions
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-[13px] text-slate-400">No Permissions</span>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-4 text-center">
+                                                <span className="text-xs font-normal text-black">
+                                                    {getRoleCreatorName(item.created_by)}
+                                                </span>
                                             </td>
                                             <td className="px-4 py-4 text-center">
                                                 <span className="text-xs font-normal text-black">
@@ -519,12 +570,12 @@ const MyTeam = ({ defaultTab = 'members', hideTabs = false }) => {
                                                 {openMenuId === item.id && (
                                                     <div 
                                                         ref={menuRef}
-                                                        className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-slate-100 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-200"
+                                                        className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-slate-100 py-1 z-50 animate-in fade-in zoom-in-95 duration-200"
                                                     >
                                                         <PermissionWrapper feature={activeTab === 'members' ? 'myTeam' : 'roles'} permission="show">
                                                             <button 
                                                                 onClick={() => {/* handle view */}}
-                                                                className="w-full text-left px-4 py-2.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                                                                className="w-full text-left px-4 py-2 text-[11px] font-normal text-black hover:bg-slate-50 flex items-center gap-2 transition-colors"
                                                             >
                                                                 <Eye size={14} className="text-slate-400" /> View Details
                                                             </button>
@@ -540,13 +591,11 @@ const MyTeam = ({ defaultTab = 'members', hideTabs = false }) => {
                                                                     }
                                                                     setOpenMenuId(null);
                                                                 }}
-                                                                className="w-full text-left px-4 py-2.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                                                                    className="w-full text-left px-4 py-2 text-[11px] font-normal text-black hover:bg-slate-50 flex items-center gap-2 transition-colors"
                                                             >
-                                                                <Edit2 size={14} className="text-slate-400" /> Edit Member
+                                                                    <Edit2 size={14} className="text-slate-400" /> {activeTab === 'roles' ? 'Edit Role' : 'Edit Member'}
                                                             </button>
                                                         </PermissionWrapper>
-
-                                                        <div className="my-1 border-t border-slate-50" />
                                                         
                                                         <PermissionWrapper feature={activeTab === 'members' ? 'myTeam' : 'roles'} permission="update">
                                                             <button 
@@ -554,7 +603,7 @@ const MyTeam = ({ defaultTab = 'members', hideTabs = false }) => {
                                                                     handleToggleStatus(item);
                                                                     setOpenMenuId(null);
                                                                 }}
-                                                                className={`w-full text-left px-4 py-2.5 text-[11px] font-bold flex items-center gap-2.5 transition-colors ${item.is_active ? 'text-rose-600 hover:bg-rose-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
+                                                                className={`w-full text-left px-4 py-2 text-[11px] font-normal flex items-center gap-2 transition-colors ${item.is_active ? 'text-rose-600 hover:bg-rose-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
                                                             >
                                                                 {item.is_active ? (
                                                                     <>
@@ -586,6 +635,75 @@ const MyTeam = ({ defaultTab = 'members', hideTabs = false }) => {
                 pageSize={itemsPerPage}
                 totalElements={filteredData.length}
             />
+
+            {permissionsModalRole && (
+                <div
+                    className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/45 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={() => setPermissionsModalRole(null)}
+                >
+                    <div
+                        className="w-full max-w-3xl mx-4 rounded-2xl bg-white border border-slate-200 shadow-[0_24px_60px_rgba(15,23,42,0.25)] overflow-hidden animate-in zoom-in-95 duration-200"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4">
+                            <div>
+                                <h3 className="text-xl font-semibold text-slate-900">{permissionsModalRole.name} Permissions</h3>
+                                <p className="text-sm text-slate-500 mt-1">Unique feature-wise access granted to this role.</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setPermissionsModalRole(null)}
+                                className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="max-h-[65vh] overflow-y-auto px-6 py-5 space-y-3">
+                            {getUniqueRolePermissions(permissionsModalRole).length === 0 ? (
+                                <div className="text-sm text-slate-500">No permissions assigned.</div>
+                            ) : (
+                                getUniqueRolePermissions(permissionsModalRole).map((feature) => {
+                                    const labels = [];
+                                    if (feature.permissions.read) labels.push('READ');
+                                    if (feature.permissions.write) labels.push('CREATE');
+                                    if (feature.permissions.update) labels.push('UPDATE');
+                                    if (feature.permissions.delete) labels.push('DELETE');
+                                    if (feature.permissions.export) labels.push('EXPORT');
+                                    if (feature.permissions.import) labels.push('IMPORT');
+                                    if (feature.dashboardOptions.dashboard) labels.push('DASHBOARD');
+                                    if (feature.dashboardOptions.inbox) labels.push('INBOX');
+
+                                    return (
+                                        <div key={feature.featureName} className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                                            <div className="flex flex-wrap items-center gap-2 justify-between">
+                                                <div className="text-sm font-semibold text-slate-900">{feature.featureName}</div>
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    {feature.scopes.map((scope) => (
+                                                        <span key={`${feature.featureName}-${scope}`} className="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                                            Scope: {scope}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-3 flex flex-wrap gap-2">
+                                                {labels.length > 0 ? labels.map((label) => (
+                                                    <span key={`${feature.featureName}-${label}`} className="inline-flex rounded-md bg-blue-100 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
+                                                        {label}
+                                                    </span>
+                                                )) : (
+                                                    <span className="text-xs text-slate-400">No active actions</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Add Modal (Member/Role) */}
             {showAddModal && (

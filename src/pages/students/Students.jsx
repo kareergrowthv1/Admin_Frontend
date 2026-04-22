@@ -7,6 +7,7 @@ import PermissionWrapper from '../../components/common/PermissionWrapper';
 import Pagination from '../../components/common/Pagination';
 import { getFeatureDataScope, getLoggedInUserId } from '../../utils/permissionUtils';
 import { X, GraduationCap, RefreshCw } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const Students = () => {
     const navigate = useNavigate();
@@ -51,6 +52,10 @@ const Students = () => {
     });
     const filterRef = useRef(null);
     const dropdownRef = useRef(null);
+    const bulkFileRef = useRef(null);
+    const [showBulkModal, setShowBulkModal] = useState(false);
+    const [bulkRows, setBulkRows] = useState([]);
+    const [bulkFileName, setBulkFileName] = useState('');
     const statusOptions = [
         { label: 'Active', value: 'Active' },
         { label: 'Inactive', value: 'Inactive' },
@@ -357,6 +362,82 @@ const Students = () => {
         return null;
     };
 
+    const BULK_REQUIRED_COLS = ['candidate_name', 'email', 'mobile_number'];
+    const BULK_SAMPLE_ROW = {
+        candidate_name: 'John Doe', email: 'john@college.edu', mobile_number: '9876543210',
+        register_no: '21CS001', department_name: 'Computer Science', semester: '3',
+        year_of_passing: '2025', location: 'Bangalore'
+    };
+
+    const handleBulkFileChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setBulkFileName(file.name);
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const data = new Uint8Array(evt.target.result);
+                const wb = XLSX.read(data, { type: 'array' });
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+                setBulkRows(rows.map(r => ({
+                    candidate_name: String(r.candidate_name || r['Full Name'] || r['Name'] || '').trim(),
+                    email: String(r.email || r['Email'] || r['Email Address'] || '').trim().toLowerCase(),
+                    mobile_number: String(r.mobile_number || r['Mobile'] || r['Phone'] || r['Mobile Number'] || '').trim(),
+                    register_no: String(r.register_no || r['Register No'] || r['Roll No'] || '').trim(),
+                    department_name: String(r.department_name || r['Department'] || '').trim(),
+                    semester: String(r.semester || r['Semester'] || '').trim(),
+                    year_of_passing: String(r.year_of_passing || r['Year of Passing'] || '').trim(),
+                    location: String(r.location || r['Location'] || r['City'] || '').trim(),
+                })));
+            } catch (err) {
+                toast.error('Failed to read file. Please use a valid CSV or Excel file.');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+        e.target.value = '';
+    };
+
+    const handleBulkUpload = () => {
+        if (!bulkRows.length) return;
+        const invalid = bulkRows.filter(r => !r.candidate_name || !r.email || !r.mobile_number);
+        if (invalid.length) {
+            toast.error(`${invalid.length} row(s) missing required fields (Name, Email, Mobile)`);
+            return;
+        }
+        // Close modal immediately — process in background
+        setShowBulkModal(false);
+        const rowsToProcess = [...bulkRows];
+        toast.success(`Processing ${rowsToProcess.length} students in background...`);
+        (async () => {
+            let success = 0, failed = 0;
+            for (const row of rowsToProcess) {
+                try {
+                    const fd = new FormData();
+                    Object.entries(row).forEach(([k, v]) => {
+                        if (k !== 'status' && v) fd.append(k, v);
+                    });
+                    await axios.post('/candidates', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+                    success++;
+                } catch (err) {
+                    failed++;
+                }
+            }
+            if (success > 0) {
+                toast.success(`${success} student(s) added successfully`);
+                fetchStudents(false, true);
+            }
+            if (failed > 0) toast.error(`${failed} student(s) failed to add`);
+        })();
+    };
+
+    const downloadSampleFile = () => {
+        const ws = XLSX.utils.json_to_sheet([BULK_SAMPLE_ROW]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Students');
+        XLSX.writeFile(wb, 'students_bulk_upload_sample.xlsx');
+    };
+
     return (
         <div className="space-y-6 pt-2 pb-12">
             {/* Filtered By Indicator */}
@@ -608,10 +689,19 @@ const Students = () => {
                 </div>
 
                 {/* Add Student button */}
-                <PermissionWrapper feature="students" permission="write">
+                <PermissionWrapper feature="students" permission="create">
+                    <button
+                        onClick={() => { setBulkRows([]); setBulkFileName(''); setShowBulkModal(true); }}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 transition-all shrink-0 shadow-sm"
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        Bulk Upload
+                    </button>
                     <button
                         onClick={() => navigate('/students/add')}
-                        className="ml-auto flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-all shrink-0"
+                        className="ml-2 flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-all shrink-0"
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -627,19 +717,20 @@ const Students = () => {
                     <thead>
                         <tr className="bg-slate-50/50 border-b border-slate-200">
                             <th className="pl-8 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Student Name</th>
+                            <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Phone</th>
                             <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Reg No</th>
                             <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Department</th>
-                            <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center whitespace-nowrap">Year of Passing</th>
+                            <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center whitespace-nowrap">Batch Year</th>
                             <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Status</th>
                             <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Created At</th>
-                            <th className="pr-8 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                            <th className="pr-8 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
                         {loading ? (
                             [...Array(6)].map((_, idx) => (
                                 <tr key={idx} className="animate-pulse">
-                                    <td colSpan={8} className="px-8 py-6">
+                                    <td colSpan={9} className="px-8 py-6">
                                         <div className="h-10 bg-slate-100 rounded-lg" />
                                     </td>
                                 </tr>
@@ -655,7 +746,11 @@ const Students = () => {
                                 const semester = student.semester != null && student.semester !== '' ? (Number(student.semester) ? `Sem ${student.semester}` : '—') : '—';
                                 const department = (student.department_name || student.department || '').trim() || '—';
                                 const registerNo = (student.register_no != null && String(student.register_no).trim() !== '') ? String(student.register_no).trim() : '—';
-                                const yearOfPassing = (student.year_of_passing != null && String(student.year_of_passing).trim() !== '') ? String(student.year_of_passing).trim() : '—';
+                                const batchYear = student.batch_start_year && student.batch_end_year
+                                    ? `${student.batch_start_year} - ${student.batch_end_year}`
+                                    : student.year_of_passing
+                                        ? String(student.year_of_passing)
+                                        : '—';
 
                                 return (
                                     <tr key={id} className="hover:bg-slate-100/40 transition-colors group">
@@ -679,13 +774,16 @@ const Students = () => {
                                             </div>
                                         </td>
                                         <td className="px-4 py-4 text-center">
+                                            <span className="text-xs text-black">{student.mobile_number || '—'}</span>
+                                        </td>
+                                        <td className="px-4 py-4 text-center">
                                             <span className="text-xs text-black">{registerNo}</span>
                                         </td>
                                         <td className="px-4 py-4 text-center">
                                             <span className="text-xs text-black">{semester}, {department}</span>
                                         </td>
                                         <td className="px-4 py-4 text-center">
-                                            <span className="text-xs text-black">{yearOfPassing}</span>
+                                            <span className="text-xs text-black">{batchYear}</span>
                                         </td>
                                         <td className="px-4 py-4 text-center">
                                             <span className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${getStatusStyles(status)}`}>
@@ -697,7 +795,7 @@ const Students = () => {
                                                 {formatDate(createdAt)}
                                             </span>
                                         </td>
-                                        <td className="pr-8 py-4 text-right">
+                                        <td className="pr-8 py-4 text-center">
                                             <div className="relative inline-block" data-action-menu>
                                                 <button
                                                     type="button"
@@ -896,6 +994,122 @@ const Students = () => {
                                 </div>
                             </>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk Upload Modal */}
+            {showBulkModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 flex flex-col max-h-[90vh]">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                            <div>
+                                <h2 className="text-sm font-bold text-slate-800">Bulk Upload Students</h2>
+                                <p className="text-[11px] text-slate-400 mt-0.5">Upload a CSV or Excel file to add multiple students at once</p>
+                            </div>
+                            <button onClick={() => setShowBulkModal(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
+                                <X size={16} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto space-y-5 flex-1">
+                            {/* File picker — shown only when no rows loaded */}
+                            {bulkRows.length === 0 && (
+                                <>
+                                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                                        <p className="text-[11px] font-bold text-blue-700 mb-2 uppercase tracking-wider">Required Columns</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {['candidate_name', 'email', 'mobile_number'].map(c => (
+                                                <span key={c} className="px-2 py-0.5 bg-blue-600 text-white text-[10px] font-semibold rounded-full">{c} *</span>
+                                            ))}
+                                            {['register_no', 'department_name', 'semester', 'year_of_passing', 'location'].map(c => (
+                                                <span key={c} className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-semibold rounded-full">{c}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div
+                                        onClick={() => bulkFileRef.current?.click()}
+                                        className="border-2 border-dashed border-slate-300 rounded-xl px-6 py-10 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                                    >
+                                        <input ref={bulkFileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleBulkFileChange} />
+                                        <svg className="w-10 h-10 mx-auto text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                        <p className="text-sm text-slate-400">Click to select a <span className="font-semibold">.csv</span> or <span className="font-semibold">.xlsx</span> file</p>
+                                        <p className="text-[11px] text-slate-300 mt-1">All records will be shown for review before adding</p>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Full preview of ALL records */}
+                            {bulkRows.length > 0 && (
+                                <div>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-800">{bulkRows.length} Student(s) Ready to Add</p>
+                                            {bulkRows.filter(r => !r.candidate_name || !r.email || !r.mobile_number).length > 0 && (
+                                                <p className="text-[11px] text-red-500 mt-0.5">{bulkRows.filter(r => !r.candidate_name || !r.email || !r.mobile_number).length} row(s) have missing required fields (highlighted in red)</p>
+                                            )}
+                                        </div>
+                                        <button
+                                            onClick={() => { setBulkRows([]); setBulkFileName(''); }}
+                                            className="text-[11px] text-slate-400 hover:text-red-500 transition-colors flex items-center gap-1"
+                                        >
+                                            <X size={12} /> Change File
+                                        </button>
+                                    </div>
+                                    <div className="overflow-auto rounded-xl border border-slate-200 max-h-[380px]">
+                                        <table className="w-full text-[11px]">
+                                            <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
+                                                <tr>
+                                                    {['#', 'Name', 'Email', 'Mobile', 'Reg No', 'Department', 'Sem', 'Year', 'Location'].map(h => (
+                                                        <th key={h} className="px-3 py-2.5 text-left font-semibold text-slate-500 whitespace-nowrap">{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {bulkRows.map((r, i) => {
+                                                    const hasError = !r.candidate_name || !r.email || !r.mobile_number;
+                                                    return (
+                                                        <tr key={i} className={hasError ? 'bg-red-50' : 'hover:bg-slate-50'}>
+                                                            <td className="px-3 py-2 text-slate-400 font-medium">{i + 1}</td>
+                                                            <td className="px-3 py-2 font-medium text-slate-800 max-w-[120px] truncate">{r.candidate_name || <span className="text-red-500 font-semibold">Missing</span>}</td>
+                                                            <td className="px-3 py-2 text-slate-600 max-w-[160px] truncate">{r.email || <span className="text-red-500 font-semibold">Missing</span>}</td>
+                                                            <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{r.mobile_number || <span className="text-red-500 font-semibold">Missing</span>}</td>
+                                                            <td className="px-3 py-2 text-slate-500">{r.register_no || '—'}</td>
+                                                            <td className="px-3 py-2 text-slate-500 max-w-[120px] truncate">{r.department_name || '—'}</td>
+                                                            <td className="px-3 py-2 text-slate-500">{r.semester || '—'}</td>
+                                                            <td className="px-3 py-2 text-slate-500">{r.year_of_passing || '—'}</td>
+                                                            <td className="px-3 py-2 text-slate-500 max-w-[100px] truncate">{r.location || '—'}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+                            <button onClick={downloadSampleFile} className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-blue-600 font-semibold transition-colors">
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                Download Sample
+                            </button>
+                            <div className="flex gap-3">
+                                <button onClick={() => setShowBulkModal(false)} className="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">
+                                    Cancel
+                                </button>
+                                {bulkRows.length > 0 && bulkRows.filter(r => !r.candidate_name || !r.email || !r.mobile_number).length === 0 && (
+                                    <button
+                                        onClick={handleBulkUpload}
+                                        className="px-5 py-2 text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                    >
+                                        Add {bulkRows.length} Students
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

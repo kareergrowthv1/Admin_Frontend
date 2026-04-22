@@ -394,7 +394,7 @@ const StudentCreate = () => {
                     >
                         Reset
                     </button>
-                    <PermissionWrapper feature="students" permission="write">
+                    <PermissionWrapper feature="students" permission="create">
                         <button
                             onClick={handleSubmit}
                             disabled={loading}

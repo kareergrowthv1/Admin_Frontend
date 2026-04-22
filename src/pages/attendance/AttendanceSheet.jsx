@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { useParams, useNavigate } from 'react-router-dom';
 import Pagination from '../../components/common/Pagination';
 import PermissionWrapper from '../../components/common/PermissionWrapper';
+import * as XLSX from 'xlsx';
 
 const AttendanceSheet = () => {
     const { deptId, branchId, subjectId } = useParams();
@@ -47,11 +48,21 @@ const AttendanceSheet = () => {
     // Import Flow States
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [importing, setImporting] = useState(false);
-    const [unmappedStudents, setUnmappedStudents] = useState([]);
-    const [unmappedPage, setUnmappedPage] = useState(0);
-    const [hasMoreUnmapped, setHasMoreUnmapped] = useState(true);
-    const [selectedStudentIds, setSelectedStudentIds] = useState([]);
-    const [loadingUnmapped, setLoadingUnmapped] = useState(false);
+    const [importFileName, setImportFileName] = useState('');
+    const [importRows, setImportRows] = useState([]);
+    const [importPreviewRows, setImportPreviewRows] = useState([]);
+    const [previewLoading, setPreviewLoading] = useState(false);
+    const [sheetContext, setSheetContext] = useState({
+        departmentId: '',
+        departmentName: '-',
+        branchId: '',
+        branchName: '-',
+        subjectId: '',
+        batch: '-',
+        subjectName: '-',
+        semester: '-',
+    });
+    const fileInputRef = useRef(null);
 
     // UI States
     const [showFilters, setShowFilters] = useState(false);
@@ -93,6 +104,38 @@ const AttendanceSheet = () => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    useEffect(() => {
+        const fetchSheetContext = async () => {
+            if (!subjectId || subjectId === 'undefined') return;
+            try {
+                const res = await axios.get(`/attendance/sheet-context/${subjectId}`);
+                const ctx = res?.data?.data || {};
+                setSheetContext({
+                    departmentId: ctx.departmentId || '',
+                    departmentName: ctx.departmentName || '-',
+                    branchId: ctx.branchId || '',
+                    branchName: ctx.branchName || '-',
+                    subjectId: ctx.subjectId || '',
+                    batch: ctx.batch || (ctx.startYear && ctx.endYear ? `${ctx.startYear} - ${ctx.endYear}` : '-'),
+                    subjectName: ctx.subjectName || '-',
+                    semester: ctx.semester || '-',
+                });
+            } catch (err) {
+                setSheetContext({
+                    departmentId: '',
+                    departmentName: '-',
+                    branchId: '',
+                    branchName: '-',
+                    subjectId: '',
+                    batch: '-',
+                    subjectName: '-',
+                    semester: '-',
+                });
+            }
+        };
+        fetchSheetContext();
+    }, [subjectId]);
 
     const fetchData = async () => {
         try {
@@ -166,44 +209,139 @@ const AttendanceSheet = () => {
         }
     };
 
-    const fetchUnmappedStudents = async (pageNum = 0) => {
+    const handleImportOpen = () => {
+        setIsImportModalOpen(true);
+        setImportFileName('');
+        setImportRows([]);
+        setImportPreviewRows([]);
+    };
+
+    const handleImportFileChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setImportFileName(file.name);
+        setImportPreviewRows([]);
+        setPreviewLoading(true);
+
         try {
-            setLoadingUnmapped(true);
-            const res = await axios.get(`/attendance/unmapped-students/${branchId}?subjectId=${subjectId}&page=${pageNum}`);
-            const fetched = res.data.data;
-            if (fetched.length < 20) setHasMoreUnmapped(false);
-            if (pageNum === 0) setUnmappedStudents(fetched);
-            else setUnmappedStudents(prev => [...prev, ...fetched]);
+            const data = await file.arrayBuffer();
+            const wb = XLSX.read(data, { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const parsed = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+            const normalized = parsed.map((r) => ({
+                candidate_name: String(r.candidate_name || r.name || r['Student Name'] || r['Candidate Name'] || '').trim(),
+                email: String(r.email || r['Email'] || r['Email Address'] || '').trim(),
+                mobile_number: String(r.mobile_number || r.mobile || r.phone || r['Phone'] || r['Mobile'] || r['Mobile Number'] || '').trim(),
+                register_no: String(r.register_no || r.registerNo || r['Register No'] || r.usn || '').trim(),
+                department_name: String(r.department_name || r.department || r['Department Name'] || r['Department'] || '').trim(),
+                branch_name: String(r.branch_name || r.branch || r.batch || r['Branch Name'] || r['Branch'] || r['Batch'] || '').trim(),
+                semester: String(r.semester || r['Semester'] || '').trim(),
+                subject_name: String(r.subject_name || r.subject || r['Subject Name'] || r['Subject'] || '').trim(),
+            }));
+
+            setImportRows(normalized);
+
+            const currentDepartmentName = String(sheetContext.departmentName || '').trim().toLowerCase();
+            const currentBranchName = String(sheetContext.branchName || '').trim().toLowerCase();
+            const currentSubjectName = String(sheetContext.subjectName || '').trim().toLowerCase();
+            const currentSemester = String(sheetContext.semester || '').trim();
+
+            const localPreview = normalized.map((row, idx) => {
+                const rowNo = idx + 1;
+                const missing = [];
+                if (!row.register_no) missing.push('register_no');
+                if (!row.department_name) missing.push('department_name');
+                if (!row.branch_name) missing.push('branch_name');
+                if (!row.semester) missing.push('semester');
+                if (!row.subject_name) missing.push('subject_name');
+
+                if (missing.length > 0) {
+                    return {
+                        rowNo,
+                        department_name: row.department_name || '-',
+                        branch_name: row.branch_name || '-',
+                        semester: row.semester || '-',
+                        subject_name: row.subject_name || '-',
+                        email: row.email || '-',
+                        mobile_number: row.mobile_number || '-',
+                        register_no: row.register_no || '-',
+                        candidate_name: row.candidate_name || '-',
+                        valid: false,
+                        reason: `Missing: ${missing.join(', ')}`,
+                    };
+                }
+
+                if (currentDepartmentName && row.department_name.trim().toLowerCase() !== currentDepartmentName) {
+                    return { rowNo, department_name: row.department_name || '-', branch_name: row.branch_name || '-', semester: row.semester || '-', subject_name: row.subject_name || '-', email: row.email || '-', mobile_number: row.mobile_number || '-', register_no: row.register_no, candidate_name: row.candidate_name || '-', valid: false, reason: 'Department mismatch' };
+                }
+                if (currentBranchName && row.branch_name.trim().toLowerCase() !== currentBranchName) {
+                    return { rowNo, department_name: row.department_name || '-', branch_name: row.branch_name || '-', semester: row.semester || '-', subject_name: row.subject_name || '-', email: row.email || '-', mobile_number: row.mobile_number || '-', register_no: row.register_no, candidate_name: row.candidate_name || '-', valid: false, reason: 'Branch mismatch' };
+                }
+                if (currentSubjectName && row.subject_name.trim().toLowerCase() !== currentSubjectName) {
+                    return { rowNo, department_name: row.department_name || '-', branch_name: row.branch_name || '-', semester: row.semester || '-', subject_name: row.subject_name || '-', email: row.email || '-', mobile_number: row.mobile_number || '-', register_no: row.register_no, candidate_name: row.candidate_name || '-', valid: false, reason: 'Subject mismatch' };
+                }
+                if (currentSemester && row.semester !== currentSemester) {
+                    return { rowNo, department_name: row.department_name || '-', branch_name: row.branch_name || '-', semester: row.semester || '-', subject_name: row.subject_name || '-', email: row.email || '-', mobile_number: row.mobile_number || '-', register_no: row.register_no, candidate_name: row.candidate_name || '-', valid: false, reason: `Semester mismatch (expected ${currentSemester})` };
+                }
+
+                return {
+                    rowNo,
+                    department_name: row.department_name || '-',
+                    branch_name: row.branch_name || '-',
+                    semester: row.semester || '-',
+                    subject_name: row.subject_name || '-',
+                    email: row.email || '-',
+                    mobile_number: row.mobile_number || '-',
+                    register_no: row.register_no,
+                    candidate_name: row.candidate_name || '-',
+                    valid: true,
+                    reason: 'File row matches current sheet context',
+                };
+            });
+
+            setImportPreviewRows(localPreview);
         } catch (err) {
-            toast.error('Failed to lookup candidates locally');
+            toast.error('Failed to parse or validate the file');
         } finally {
-            setLoadingUnmapped(false);
+            setPreviewLoading(false);
+            e.target.value = '';
         }
     };
 
-    const handleImportOpen = () => {
-        setIsImportModalOpen(true);
-        setUnmappedPage(0);
-        setHasMoreUnmapped(true);
-        setSelectedStudentIds([]);
-        fetchUnmappedStudents(0);
-    };
-
     const handleImportSubmit = async () => {
-        if (selectedStudentIds.length === 0) return toast.error('Check at least one student strictly');
-        setImporting(true);
+        const localValidRows = importRows.filter((row, idx) => importPreviewRows[idx]?.valid);
+        if (localValidRows.length === 0) return toast.error('No valid students to import for this sheet');
+
+        setIsImportModalOpen(false);
+        toast.success(`Processing ${localValidRows.length} valid student(s) in background...`);
+
         try {
-            const res = await axios.post('/attendance/import-students', {
+            setImporting(true);
+            // Server call happens only on Import click to resolve candidate IDs and final eligibility.
+            const previewRes = await axios.post('/attendance/import-students/preview', {
+                deptId: deptId && deptId !== 'undefined' ? deptId : null,
+                branchId,
                 subjectId,
-                studentIds: selectedStudentIds
+                rows: localValidRows,
             });
+            const validIds = (previewRes?.data?.data || [])
+                .filter((r) => r.valid && r.candidate_id)
+                .map((r) => r.candidate_id);
+
+            if (validIds.length === 0) {
+                toast.error('No eligible students found after server validation');
+                return;
+            }
+
+            const res = await axios.post('/attendance/import-students', { subjectId, studentIds: validIds });
             if (res.data.success) {
-                toast.success('Successfully imported!');
-                setIsImportModalOpen(false);
+                toast.success(`Imported ${validIds.length} student(s) successfully`);
                 fetchData();
             }
         } catch (err) {
-            toast.error('Failure tracking subject mappings natively');
+            toast.error('Import failed');
         } finally {
             setImporting(false);
         }
@@ -328,12 +466,20 @@ const AttendanceSheet = () => {
                     )}
                 </div>
 
-                <div className="h-8 w-[1px] bg-slate-200 mx-1"></div>
-
                 <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm group">
                     <Download size={16} className="text-slate-400 group-hover:text-blue-600 transition-colors" />
                     <span>Export CSV</span>
                 </button>
+
+                <PermissionWrapper feature="attendance" permission="create">
+                    <button
+                        onClick={handleImportOpen}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm group whitespace-nowrap shrink-0"
+                    >
+                        <Plus size={16} className="text-slate-400 group-hover:text-blue-600 transition-colors" />
+                        <span>Import</span>
+                    </button>
+                </PermissionWrapper>
 
                 <PermissionWrapper feature="attendance" permission="update">
                     <button 
@@ -350,16 +496,6 @@ const AttendanceSheet = () => {
                         `}
                     >
                         <span>{saving ? 'Saving...' : (isEditMode ? 'Save Sheet' : 'Edit Sheet')}</span>
-                    </button>
-               </PermissionWrapper>
-
-                <PermissionWrapper feature="attendance" permission="create">
-                    <button 
-                        onClick={handleImportOpen}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-900 rounded-lg text-xs font-bold text-white hover:bg-slate-800 transition-all shadow-sm group whitespace-nowrap shrink-0"
-                    >
-                        <Plus size={16} className="text-white" />
-                        <span>Add Student</span>
                     </button>
                </PermissionWrapper>
             </div>
@@ -507,117 +643,108 @@ const AttendanceSheet = () => {
             {/* Import Students Modal */}
             {isImportModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
+                    <div className="w-full max-w-5xl bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
                         <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between bg-white shrink-0">
                             <div>
-                                <h3 className="text-base font-bold text-slate-900">Map Existing Candidate</h3>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Push students from candidates list directly to this subject natively</p>
+                                <h3 className="text-base font-bold text-slate-900">Import Students For This Attendance Sheet</h3>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Upload CSV/XLSX and validate against current department, batch, semester and subject</p>
                             </div>
                             <button onClick={() => setIsImportModalOpen(false)} className="p-2 hover:bg-slate-50 rounded-full text-slate-400 hover:text-slate-600 transition-colors">
                                 <Plus size={20} className="rotate-45" />
                             </button>
                         </div>
                         
-                        <div className="p-6 flex flex-col overflow-hidden min-h-[300px] bg-slate-50/50">
-                            {/* Pre-select Context Preview purely visual */}
-                            <div className="grid grid-cols-2 gap-4 mb-6">
-                                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm opacity-70">
-                                    <label className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Target Branch ID</label>
-                                    <div className="text-xs font-bold text-slate-700 font-mono mt-1 truncate">{branchId}</div>
+                        <div className="p-6 flex flex-col overflow-hidden min-h-[300px] bg-slate-50/50 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                    <label className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Department</label>
+                                    <div className="text-xs font-bold text-slate-700 mt-1 truncate">{sheetContext.departmentName}</div>
                                 </div>
-                                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm opacity-70">
-                                    <label className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Target Subject ID</label>
-                                    <div className="text-xs font-bold text-slate-700 font-mono mt-1 truncate">{subjectId}</div>
+                                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                    <label className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Branch</label>
+                                    <div className="text-xs font-bold text-slate-700 mt-1 truncate">{sheetContext.branchName}</div>
+                                </div>
+                                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                    <label className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Batch</label>
+                                    <div className="text-xs font-bold text-slate-700 mt-1 truncate">{sheetContext.batch}</div>
+                                </div>
+                                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                    <label className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Subject</label>
+                                    <div className="text-xs font-bold text-slate-700 mt-1 truncate">{sheetContext.subjectName} {sheetContext.semester !== '-' ? `(Sem ${sheetContext.semester})` : ''}</div>
                                 </div>
                             </div>
 
-                            <label className="text-[11px] font-bold text-slate-500 mb-2 block uppercase tracking-wider flex items-center justify-between">
-                                <span>Unassigned Candidates Queue</span>
-                                {selectedStudentIds.length > 0 && <span className="text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full text-[10px] font-bold">{selectedStudentIds.length} Selected</span>}
-                            </label>
-                            
-                            <div className="bg-white border border-slate-200 rounded-xl flex-1 overflow-y-auto no-scrollbar relative shadow-inner p-2 space-y-1.5 min-h-[250px]">
-                                {unmappedStudents.length === 0 && !loadingUnmapped ? (
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
-                                        <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mb-3 border border-slate-100">
-                                            <UserCheck className="text-slate-300 w-5 h-5" />
-                                        </div>
-                                        <h5 className="text-sm font-bold text-slate-600">No Pending Candidates Found</h5>
-                                        <p className="text-xs text-slate-400 mt-1 max-w-[250px] mx-auto">Everyone active strictly within this branch is literally mapped completely!</p>
+                            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm -mt-1">
+                                <label className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">Required In File</label>
+                                <div className="mt-1 space-y-1.5">
+                                    <div>
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Required</span>
+                                        <div className="text-[11px] font-semibold text-slate-700 mt-0.5">register_no, department_name, branch_name, semester, subject_name</div>
                                     </div>
-                                ) : (
-                                    <>
-                                        {unmappedStudents.length > 0 && (
-                                            <>
-                                                <label className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer border border-transparent hover:border-slate-100">
-                                                    <input 
-                                                        type="checkbox"
-                                                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500/20"
-                                                        checked={unmappedStudents.length > 0 && selectedStudentIds.length === unmappedStudents.length}
-                                                        onChange={(e) => {
-                                                            if (e.target.checked) setSelectedStudentIds(unmappedStudents.map(s => s.id));
-                                                            else setSelectedStudentIds([]);
-                                                        }}
-                                                    />
-                                                    <span className="text-xs font-bold text-slate-900">Select All Loaded Profiles</span>
-                                                </label>
-                                                <div className="h-px bg-slate-100 mx-2 mb-2 w-auto"></div>
-                                            </>
-                                        )}
-                                        
-                                        {unmappedStudents.map(student => (
-                                            <label key={student.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer border border-slate-50">
-                                                <input 
-                                                    type="checkbox"
-                                                    checked={selectedStudentIds.includes(student.id)}
-                                                    onChange={(e) => {
-                                                        if (e.target.checked) setSelectedStudentIds([...selectedStudentIds, student.id]);
-                                                        else setSelectedStudentIds(selectedStudentIds.filter(id => id !== student.id));
-                                                    }}
-                                                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500/20"
-                                                />
-                                                <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 overflow-hidden shrink-0">
-                                                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${student.first_name}`} alt="avatar" className="w-full h-full object-cover" />
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-bold text-slate-700">{student.first_name} {student.last_name}</span>
-                                                    <span className="text-[10px] text-slate-400 font-mono tracking-widest font-semibold">{student.usn}</span>
-                                                </div>
-                                            </label>
-                                        ))}
+                                    <div>
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Other Fields</span>
+                                        <div className="text-[11px] font-semibold text-slate-700 mt-0.5">candidate_name, email, mobile_number</div>
+                                    </div>
+                                </div>
+                            </div>
 
-                                        {hasMoreUnmapped && (
-                                            <div className="pt-4 pb-2 px-2">
-                                                <button 
-                                                    onClick={() => {
-                                                        const next = unmappedPage + 1;
-                                                        setUnmappedPage(next);
-                                                        fetchUnmappedStudents(next);
-                                                    }}
-                                                    disabled={loadingUnmapped}
-                                                    className="w-full py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 disabled:opacity-50 transition-colors flex justify-center"
-                                                >
-                                                    {loadingUnmapped ? 'Loading subset...' : 'View More Directory Pages ↓'}
-                                                </button>
-                                            </div>
-                                        )}
-                                    </>
+                            <div className="bg-white border border-dashed border-slate-300 rounded-xl p-5 text-center">
+                                <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleImportFileChange} />
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="px-4 py-2 text-xs font-bold bg-slate-900 text-white rounded-lg hover:bg-slate-800"
+                                >
+                                    Upload CSV / XLSX
+                                </button>
+                                <p className="text-[11px] text-slate-400 mt-2">{importFileName || 'No file selected'}</p>
+                            </div>
+
+                            <div className="bg-white border border-slate-200 rounded-xl flex-1 overflow-auto min-h-[280px]">
+                                {previewLoading ? (
+                                    <div className="h-full flex items-center justify-center text-sm text-slate-400">Validating rows...</div>
+                                ) : importPreviewRows.length === 0 ? (
+                                    <div className="h-full flex items-center justify-center text-sm text-slate-400">Upload a file to preview mapped and mismatched records.</div>
+                                ) : (
+                                    <table className="w-full text-[11px]">
+                                        <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200">
+                                            <tr>
+                                                {['Row', 'Candidate Name', 'Email', 'Number', 'Register No', 'Department', 'Branch', 'Semester', 'Subject', 'Validation'].map((h) => (
+                                                    <th key={h} className="px-3 py-2.5 text-left font-bold text-slate-600 uppercase tracking-wider">{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {importPreviewRows.map((r) => (
+                                                <tr key={`${r.rowNo}-${r.register_no}`} className={r.valid ? 'bg-emerald-50/70' : 'bg-red-50/70'}>
+                                                    <td className="px-3 py-2 font-semibold text-slate-600">{r.rowNo}</td>
+                                                    <td className="px-3 py-2 text-slate-700">{r.candidate_name || '-'}</td>
+                                                    <td className="px-3 py-2 text-slate-700">{r.email || '-'}</td>
+                                                    <td className="px-3 py-2 text-slate-700">{r.mobile_number || '-'}</td>
+                                                    <td className="px-3 py-2 font-mono text-slate-700">{r.register_no}</td>
+                                                    <td className="px-3 py-2 text-slate-700">{r.department_name || '-'}</td>
+                                                    <td className="px-3 py-2 text-slate-700">{r.branch_name || '-'}</td>
+                                                    <td className="px-3 py-2 text-slate-700">{r.semester || '-'}</td>
+                                                    <td className="px-3 py-2 text-slate-700">{r.subject_name || '-'}</td>
+                                                    <td className={`px-3 py-2 font-semibold ${r.valid ? 'text-emerald-700' : 'text-red-600'}`}>
+                                                        {r.reason}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 )}
                             </div>
                         </div>
 
                         <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between shrink-0 bg-white">
-                            <button 
-                                onClick={() => navigate('/students/add')}
-                                className="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1.5"
-                            >
-                                <Plus size={14} /> Add Completely New Student
-                            </button>
+                            <div className="text-[11px] text-slate-500 font-semibold">
+                                Valid: <span className="text-emerald-600">{importPreviewRows.filter((r) => r.valid).length}</span> / Invalid: <span className="text-red-600">{importPreviewRows.filter((r) => !r.valid).length}</span>
+                            </div>
                             
                             <div className="flex gap-3">
                                 <button type="button" onClick={() => setIsImportModalOpen(false)} className="px-5 py-2 text-xs font-bold text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">Cancel</button>
-                                <button type="button" onClick={handleImportSubmit} disabled={importing || selectedStudentIds.length === 0} className="px-5 py-2 text-xs font-bold flex items-center gap-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all shadow-md active:scale-95 disabled:opacity-50">
-                                    <UserCheck size={14} /> {importing ? 'Importing...' : 'Confirm Assignment'}
+                                <button type="button" onClick={handleImportSubmit} disabled={importing || importPreviewRows.filter((r) => r.valid).length === 0} className="px-5 py-2 text-xs font-bold flex items-center gap-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all shadow-md active:scale-95 disabled:opacity-50">
+                                    <UserCheck size={14} /> Import Valid Students
                                 </button>
                             </div>
                         </div>

@@ -97,7 +97,9 @@ const CandidateDetailsDrawer = ({ isOpen, onClose, candidate: passedCandidate, o
         ]).then(([candidateData, positionsData]) => {
             if (fetchRequestedIdRef.current !== idToFetch) return;
             setFullCandidate(candidateData || passedCandidate || null);
-            setPositions(Array.isArray(positionsData) ? positionsData : []);
+            const normalizedPositions = Array.isArray(positionsData) ? positionsData : [];
+            const activePositions = normalizedPositions.filter((pos) => String(pos?.positionStatus || '').toUpperCase() === 'ACTIVE');
+            setPositions(activePositions);
             setSelectedPositionIndex(0);
         }).finally(() => {
             if (fetchRequestedIdRef.current === idToFetch) setLoading(false);

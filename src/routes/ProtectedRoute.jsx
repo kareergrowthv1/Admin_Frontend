@@ -44,16 +44,18 @@ export function checkIsCollege() {
 
 // ── Permission alias map ─────────────────────────────────────────────────────
 const PERM_ALIAS = {
-  view: 'READ', show: 'SHOW', read: 'READ',
-  write: 'WRITE', create: 'WRITE',
-  edit: 'UPDATE', update: 'UPDATE',
-  delete: 'DELETE', remove: 'DELETE',
-  export: 'EXPORT', import: 'IMPORT',
+  view: ['READ', 'SHOW'], show: ['SHOW', 'READ'], read: ['READ', 'SHOW'],
+  write: ['WRITE', 'CREATE'], create: ['CREATE', 'WRITE'],
+  edit: ['UPDATE'], update: ['UPDATE'],
+  delete: ['DELETE'], remove: ['DELETE'],
+  export: ['EXPORT'], import: ['IMPORT'],
 };
 
 function checkFeaturePermission(featureKey, permission = 'show') {
   if (checkIsAdmin()) return true;
-  const requiredPerm = PERM_ALIAS[permission?.toLowerCase()] || permission?.toUpperCase();
+  const key = (permission || '').toLowerCase();
+  const requiredPerms = PERM_ALIAS[key] || [String(permission || '').toUpperCase()];
+  const requiredPermsLower = requiredPerms.map((p) => p.toLowerCase());
   const fk = featureKey?.toLowerCase();
 
   // Check scope array
@@ -63,9 +65,9 @@ function checkFeaturePermission(featureKey, permission = 'show') {
     try {
       const scopes = JSON.parse(scopesRaw);
       if (Array.isArray(scopes)) {
-        if (scopes.includes('SHOW') || scopes.includes('READ') || scopes.includes(requiredPerm)) return true;
+        if (requiredPerms.some((perm) => scopes.includes(perm))) return true;
       } else if (typeof scopes === 'object') {
-        if (scopes.show || scopes.read || scopes[permission?.toLowerCase()]) return true;
+        if (requiredPerms.some((perm) => scopes[perm] === true) || requiredPermsLower.some((perm) => scopes[perm] === true)) return true;
       }
     } catch {}
   }
@@ -77,7 +79,7 @@ function checkFeaturePermission(featureKey, permission = 'show') {
       (p.feature_key || p.feature_name || '').toLowerCase() === fk
     );
     if (fp?.permissions) {
-      return !!(fp.permissions.show || fp.permissions.read || fp.permissions[permission?.toLowerCase()]);
+      return requiredPerms.some((perm) => fp.permissions[perm] === true) || requiredPermsLower.some((perm) => fp.permissions[perm] === true);
     }
   } catch {}
 

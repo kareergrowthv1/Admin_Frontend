@@ -34,19 +34,21 @@ const PermissionWrapper = ({ children, feature, permission }) => {
 
     // ── 2. Normalize the required permission to UPPERCASE ────────────────────
     const PERM_ALIAS = {
-        view: 'READ',
-        show: 'SHOW',
-        read: 'READ',
-        write: 'WRITE',
-        create: 'WRITE',
-        edit: 'UPDATE',
-        update: 'UPDATE',
-        delete: 'DELETE',
-        remove: 'DELETE',
-        export: 'EXPORT',
-        import: 'IMPORT',
+        view: ['READ', 'SHOW'],
+        show: ['SHOW', 'READ'],
+        read: ['READ', 'SHOW'],
+        write: ['WRITE', 'CREATE'],
+        create: ['CREATE', 'WRITE'],
+        edit: ['UPDATE'],
+        update: ['UPDATE'],
+        delete: ['DELETE'],
+        remove: ['DELETE'],
+        export: ['EXPORT'],
+        import: ['IMPORT'],
     };
-    const requiredPerm = PERM_ALIAS[permission?.toLowerCase()] || permission?.toUpperCase();
+    const requestedKey = (permission || '').toLowerCase();
+    const requiredPerms = PERM_ALIAS[requestedKey] || [String(permission || '').toUpperCase()];
+    const requiredPermsLower = requiredPerms.map((p) => p.toLowerCase());
 
     // ── 3. Check per-feature scopes array (primary store) ───────────────────
     // Login stores: localStorage.setItem(`${featureKey}Permissions`, JSON.stringify(['READ','WRITE',...]));
@@ -66,11 +68,10 @@ const PermissionWrapper = ({ children, feature, permission }) => {
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed)) {
                 // Array of uppercase scope strings: ['READ', 'WRITE', ...]
-                hasPermission = parsed.includes(requiredPerm);
+                hasPermission = requiredPerms.some((perm) => parsed.includes(perm));
             } else if (typeof parsed === 'object') {
                 // Object form: { read: true, write: false, ... }
-                const lowerPerm = permission?.toLowerCase();
-                hasPermission = !!(parsed[lowerPerm] || parsed[requiredPerm] || parsed[requiredPerm?.toLowerCase()]);
+                hasPermission = requiredPerms.some((perm) => parsed[perm] === true) || requiredPermsLower.some((perm) => parsed[perm] === true);
             }
             if (hasPermission) break;
         } catch {}
@@ -84,15 +85,16 @@ const PermissionWrapper = ({ children, feature, permission }) => {
                 p => (p.feature_key || p.feature_name || '').toLowerCase() === featureKey
             );
             if (featurePerm?.permissions) {
-                const lp = permission?.toLowerCase();
-                hasPermission = !!(featurePerm.permissions[lp] || featurePerm.permissions[requiredPerm]);
+                hasPermission = requiredPerms.some((perm) => featurePerm.permissions[perm] === true) ||
+                    requiredPermsLower.some((perm) => featurePerm.permissions[perm] === true);
             }
             // Also check PermissionsObj alternate store
             if (!hasPermission) {
                 const objRaw = localStorage.getItem(`${feature}PermissionsObj`);
                 if (objRaw) {
                     const obj = JSON.parse(objRaw);
-                    hasPermission = !!(obj[permission?.toLowerCase()] || obj[requiredPerm]);
+                    hasPermission = requiredPerms.some((perm) => obj[perm] === true) ||
+                        requiredPermsLower.some((perm) => obj[perm] === true);
                 }
             }
         } catch (e) {

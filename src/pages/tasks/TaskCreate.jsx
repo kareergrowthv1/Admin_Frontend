@@ -290,13 +290,13 @@ const TaskCreate = () => {
         // Validation for assignments
         const anyEnabled = form.is_all_students || form.is_dept_enabled || form.is_branch_enabled || form.is_subject_enabled || form.is_student_enabled;
         if (!anyEnabled) {
-            return toast.error('Please enable at least one assignment option (Dept, Branch, Subject, or Students)', { position: 'top-center' });
+            return toast.error('Please enable at least one assignment option (Dept, Branch, Subject, or Students)');
         }
 
-        if (form.is_dept_enabled && !form.dept_id) return toast.error('Please select a department', { position: 'top-center' });
-        if (form.is_branch_enabled && !form.branch_id) return toast.error('Please select a branch', { position: 'top-center' });
-        if (form.is_subject_enabled && !form.subject_id) return toast.error('Please select a subject', { position: 'top-center' });
-        if (form.is_student_enabled && form.student_ids.length === 0) return toast.error('Please search and add at least one student', { position: 'top-center' });
+        if (form.is_dept_enabled && !form.dept_id) return toast.error('Please select a department');
+        if (form.is_branch_enabled && !form.branch_id) return toast.error('Please select a branch');
+        if (form.is_subject_enabled && !form.subject_id) return toast.error('Please select a subject');
+        if (form.is_student_enabled && form.student_ids.length === 0) return toast.error('Please search and add at least one student');
 
         setLoading(true);
         const formData = new FormData();

@@ -15,11 +15,13 @@ import AddAtsCandidateModal from './AddAtsCandidateModal';
 const Candidates = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
+    const topStatusTabs = ['ALL', 'INVITED', 'MANUALLY_INVITED', 'RESUME_REJECTED', 'RECOMMENDED', 'NOT_RECOMMENDED', 'CAUTIOUSLY_RECOMMENDED'];
+    const requestedStatusTab = searchParams.get('status') || 'ALL';
     const positionId = searchParams.get('positionId');
     const filterUserId = searchParams.get('userId');
     const filterUserName = searchParams.get('userName');
     const [position, setPosition] = useState(null);
-    const [activeTab, setActiveTab] = useState(searchParams.get('status') || 'ALL');
+    const [activeTab, setActiveTab] = useState(topStatusTabs.includes(requestedStatusTab) ? requestedStatusTab : 'ALL');
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -31,7 +33,7 @@ const Candidates = () => {
     const [pageSize] = useState(10);
     const [total, setTotal] = useState(0);
     const [dropdownPos, setDropdownPos] = useState({ top: 0, buttonRight: 0 });
-    const [statusTabs] = useState(['ALL', 'INVITED', 'MANUALLY_INVITED', 'RESUME_REJECTED', 'TEST_COMPLETED', 'RECOMMENDED', 'NOT_RECOMMENDED', 'CAUTIOUSLY_RECOMMENDED']);
+    const [statusTabs] = useState(topStatusTabs);
     const [statusCounts, setStatusCounts] = useState({ ALL: 0 });
     const [organizationId, setOrganizationId] = useState(null);
     const [showFilters, setShowFilters] = useState(false);
@@ -301,17 +303,6 @@ const Candidates = () => {
         return () => clearTimeout(timeoutId);
     }, [activeTab, searchTerm, page, pageSize, organizationId, advancedFilters, positionId, fetchCandidates]);
 
-    // Auto-poll every 30s to reflect live status changes:
-    // TEST_STARTED → ROUND1 → ROUND2 → ROUND3 → ROUND4 → TEST_COMPLETED → RECOMMENDED / NOT_RECOMMENDED
-    useEffect(() => {
-        if (!organizationId) return;
-        const pollInterval = setInterval(() => {
-            fetchCandidates(false, true); // Use manual refresh flag to trigger cache-buster (_t)
-            fetchStatusCounts();
-        }, 30000);
-        return () => clearInterval(pollInterval);
-    }, [organizationId, activeTab, searchTerm, page, pageSize, advancedFilters, positionId, fetchCandidates]);
-
     const getStatusStyles = (status) => {
         const styles = {
             'INVITED': 'bg-purple-50 text-purple-600 border-purple-300',
@@ -349,10 +340,43 @@ const Candidates = () => {
             .join(' ');
     };
 
-    const getScoreStyles = (score) => {
-        if (score >= 80) return 'border-emerald-500 text-emerald-600';
-        if (score >= 60) return 'border-amber-400 text-amber-600';
-        return 'border-red-400 text-red-600';
+    const getScoreRingConfig = (rawScore) => {
+        const parsedScore = typeof rawScore === 'string'
+            ? parseFloat(rawScore.replace('%', '').trim())
+            : Number(rawScore);
+
+        if (!Number.isFinite(parsedScore)) {
+            return {
+                score: null,
+                progress: 0,
+                ringColor: '#cbd5e1',
+                textClass: 'text-slate-400'
+            };
+        }
+
+        // Handle fractional inputs like 0.82 as 82%.
+        const normalizedScore = parsedScore > 0 && parsedScore <= 1 ? parsedScore * 100 : parsedScore;
+        const score = Math.max(0, Math.min(100, normalizedScore));
+        let ringColor = '#ef4444'; // <40 red
+        let textClass = 'text-red-600';
+
+        if (score >= 80 && score <= 100) {
+            ringColor = '#10b981'; // 80-100 green
+            textClass = 'text-emerald-600';
+        } else if (score >= 60 && score < 80) {
+            ringColor = '#2563eb'; // 60-80 blue
+            textClass = 'text-blue-600';
+        } else if (score >= 40 && score < 60) {
+            ringColor = '#eab308'; // 40-60 yellow
+            textClass = 'text-yellow-600';
+        }
+
+        return {
+            score,
+            progress: score / 100,
+            ringColor,
+            textClass
+        };
     };
 
     const formatDate = (dateString) => {
@@ -741,7 +765,7 @@ const Candidates = () => {
                     >
                         <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
                     </button>
-                    <PermissionWrapper feature="candidates" permission="write">
+                    <PermissionWrapper feature="candidates" permission="create">
                         <button 
                             onClick={() => {
                                 if (checkIsCollege()) {
@@ -766,8 +790,8 @@ const Candidates = () => {
                         <tr className="bg-slate-50/50 border-b border-slate-200">
                             <th className="pl-8 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Candidate Code</th>
                             <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Candidate Name</th>
-                            <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Position Code</th>
-                            <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Position Title</th>
+                            <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Position</th>
+                            <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Mobile</th>
                             <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Invited Date</th>
                             <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Resume Score</th>
                             <th className="px-4 py-4 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Status</th>
@@ -792,7 +816,8 @@ const Candidates = () => {
                                 const positionTitle = candidate.positionTitle || candidate.job_title || '-';
                                 const positionCode = candidate.positionCode || '-';
                                 const invitedDate = candidate.linkActiveAt || candidate.candidateCreatedAt;
-                                const resumeScore = candidate.resumeMatchScore ?? '-';
+                                const resumeScore = candidate.resumeMatchScore;
+                                const scoreRing = getScoreRingConfig(resumeScore);
                                 const status = candidate.recommendationStatus || 'All';
                                 const recordingLink = (candidate.recordingLink || '').trim() || null;
                                 const screenRecordingLink = (candidate.screenRecordingLink || recordingLink || '').trim() || null;
@@ -833,11 +858,14 @@ const Candidates = () => {
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-4 py-4 text-center">
-                                            <span className="text-xs text-black">{positionCode}</span>
+                                        <td className="px-4 py-4">
+                                            <div className="min-w-0 flex flex-col" style={{gap:0, lineHeight:1.2}}>
+                                                <span className="text-xs text-black font-normal truncate max-w-[180px]" title={positionTitle}>{positionTitle}</span>
+                                                <span className="text-[11px] text-slate-500 font-normal">{positionCode}</span>
+                                            </div>
                                         </td>
-                                        <td className="px-4 py-4 text-center">
-                                            <span className="text-xs text-black truncate max-w-[180px] block" title={positionTitle}>{positionTitle}</span>
+                                        <td className="px-4 py-4">
+                                            <span className="text-xs text-black">{candidate.candidateMobileNumber || candidate.mobile_number || '-'}</span>
                                         </td>
                                         <td className="px-4 py-4 text-center">
                                             <span className="text-xs text-black whitespace-nowrap">
@@ -846,8 +874,31 @@ const Candidates = () => {
                                         </td>
                                         <td className="px-4 py-4">
                                             <div className="flex justify-center">
-                                                <div className={`w-9 h-9 rounded-full border-2 flex items-center justify-center transition-all bg-transparent ${typeof resumeScore === 'number' ? getScoreStyles(resumeScore) : 'border-slate-200 text-slate-400'}`}>
-                                                    <span className="text-[10px] font-bold">{resumeScore}</span>
+                                                <div className="relative w-9 h-9 flex items-center justify-center">
+                                                    <svg className="w-9 h-9 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
+                                                        <circle
+                                                            cx="18"
+                                                            cy="18"
+                                                            r="15"
+                                                            fill="none"
+                                                            stroke="#e2e8f0"
+                                                            strokeWidth="2"
+                                                        />
+                                                        <circle
+                                                            cx="18"
+                                                            cy="18"
+                                                            r="15"
+                                                            fill="none"
+                                                            stroke={scoreRing.ringColor}
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeDasharray={`${2 * Math.PI * 15}`}
+                                                            strokeDashoffset={`${2 * Math.PI * 15 * (1 - scoreRing.progress)}`}
+                                                        />
+                                                    </svg>
+                                                    <span className={`absolute text-[10px] font-bold ${scoreRing.textClass}`}>
+                                                        {scoreRing.score == null ? '-' : Math.round(scoreRing.score)}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </td>
@@ -902,7 +953,7 @@ const Candidates = () => {
                             })
                         ) : (
                             <tr>
-                                <td colSpan={8} className="px-8 py-14 text-center text-sm text-slate-400">
+                                <td colSpan={9} className="px-8 py-14 text-center text-sm text-slate-400">
                                     No candidates found for the selected filters.
                                 </td>
                             </tr>
