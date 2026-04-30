@@ -712,6 +712,15 @@ const CandidateReport = () => {
       if (cached) {
         const parsed = JSON.parse(cached);
         setReportData(parsed);
+        hydrateSignedScreenshotAssets(parsed, {
+          candidateId,
+          positionId,
+          clientId,
+        }).then((hydratedCached) => {
+          if (!isCancelledRef.current) {
+            setReportData(hydratedCached);
+          }
+        }).catch(() => {});
         // Keep cached view for quick paint, but always refresh from API
         // so newly generated report content (e.g. round transcripts) is not stale.
       }
@@ -732,8 +741,14 @@ const CandidateReport = () => {
 
       if (res.status === 200) {
         const vm = buildReportViewModel(res.data?.data || null, candidateNameParam, positionTitleParam, candidateId);
-        setReportData(vm);
-        sessionStorage.setItem(reportCacheKey, JSON.stringify(vm));
+        const hydratedVm = await hydrateSignedScreenshotAssets(vm, {
+          candidateId,
+          positionId,
+          clientId,
+        });
+        if (isCancelledRef.current) return;
+        setReportData(hydratedVm);
+        sessionStorage.setItem(reportCacheKey, JSON.stringify(hydratedVm));
         return;
       }
 
@@ -1487,7 +1502,20 @@ const CandidateReport = () => {
                 <div className="p-6">
                   {aptitudeData.questions.map((question, qIndex) => (
                     <div key={qIndex} className="bg-white border border-[#E5E7EB] rounded-lg p-6 mb-4 last:mb-0">
-                      <h4 className="font-semibold text-[#111827] mb-3">{qIndex + 1}. {question.question || 'N/A'}</h4>
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <h4 className="font-semibold text-[#111827]">{qIndex + 1}. {question.question || 'N/A'}</h4>
+                        <span
+                          className={`px-2 py-1 text-xs font-semibold rounded ${
+                            !question.candidateAnswer
+                              ? 'bg-gray-100 text-gray-600'
+                              : question.isCorrect
+                                ? 'bg-[#D1FAE5] text-[#065F46]'
+                                : 'bg-[#FEF2F2] text-[#991B1B]'
+                          }`}
+                        >
+                          {!question.candidateAnswer ? 'Not Answered' : (question.isCorrect ? 'Correct' : 'Wrong')}
+                        </span>
+                      </div>
                       {question.options?.length > 0 ? (
                         <div className="space-y-2 mb-4">
                           {question.options.map((option) => {
