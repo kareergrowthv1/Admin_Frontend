@@ -54,6 +54,7 @@ const AddCandidate = () => {
     const [formData, setFormData] = useState({
         position_id: preSelectedPosition?.id || '',
         position_name: preSelectedPosition?.title || '',
+        position_jd_text: '',
         question_set_id: '',
         link_validity_days: 7,
         link_start_datetime: '',
@@ -274,6 +275,22 @@ const AddCandidate = () => {
                 if (positionData?.title) {
                     positionName = positionData.title;
                 }
+                const positionJdText = String(
+                    positionData?.jobDescription
+                    || positionData?.job_description
+                    || positionData?.jobDescriptionText
+                    || ''
+                ).trim();
+                setFormData((prev) => ({
+                    ...prev,
+                    position_id: selectedId,
+                    position_name: positionName,
+                    position_jd_text: positionJdText,
+                    question_set_id: ''
+                }));
+                if (selectedId) fetchQuestionSets(selectedId);
+                else setQuestionSets([]);
+                return;
             } catch (err) {
                 console.warn('Failed to fetch position details by id:', err?.response?.data?.message || err.message);
             }
@@ -656,7 +673,9 @@ const AddCandidate = () => {
                     const headers = {};
                     if (token) headers.Authorization = `Bearer ${token.replace(/"/g, '')}`;
                     if (client) headers['X-Tenant-Id'] = client;
-                    await axios.post('/extract/resume', extractFd, { headers });
+                    axios.post('/extract/resume', extractFd, { headers }).catch((e) => {
+                        console.warn('Resume extract failed:', e?.response?.data?.message || e.message);
+                    });
                 } catch (e) {
                     console.warn('Resume extract failed:', e?.response?.data?.message || e.message);
                 }
@@ -675,30 +694,48 @@ const AddCandidate = () => {
         }
 
         // ──────────────────────────────────────────────────────────────────
-        // STEP 2.5: Direct Streaming scoring with JD+Resume text, then finalize in AdminBackend.
+        // STEP 2.5: Score with extracted resume + JD. If scoring input is insufficient, finalize gracefully without blocking add flow.
         // ──────────────────────────────────────────────────────────────────
         let recommendationStatus = 'INVITED';
         try {
-            const scoreInputRes = await axios.post('/position-candidates/score-input', {
-                positionId: formData.position_id,
-                candidateId,
-                resumeText: formData.extracted_raw_text || undefined
-            });
-            const scoreInput = scoreInputRes.data?.data || {};
-            const jobDescriptionText = String(scoreInput.jobDescriptionText || '').trim();
-            const resumeText = String(scoreInput.resumeText || '').trim();
-
-            if (jobDescriptionText.length < 20 || resumeText.length < 50) {
-                throw new Error('JD/Resume extracted text is insufficient for AI scoring');
+            let scoreInput = {};
+            try {
+                const scoreInputRes = await axios.post('/position-candidates/score-input', {
+                    positionId: formData.position_id,
+                    candidateId,
+                    resumeText: formData.extracted_raw_text || undefined
+                });
+                scoreInput = scoreInputRes.data?.data || {};
+            } catch (scoreInputErr) {
+                console.warn('score-input failed, using frontend fallback text:', scoreInputErr?.response?.data?.message || scoreInputErr.message);
             }
 
-            const streamingRes = await gatewayApi.post('/resume-ats/calculate-score', {
-                jobDescriptionText,
-                resumeText
-            });
+            const jobDescriptionText = String(
+                scoreInput.jobDescriptionText || formData.position_jd_text || formData.position_name || ''
+            ).trim();
+            const resumeText = String(formData.extracted_raw_text || scoreInput.resumeText || '').trim();
 
-            const overallScore = streamingRes.data?.overallScore;
-            const categoryScores = streamingRes.data?.categoryScores || {};
+            let overallScore = null;
+            let categoryScores = {};
+            let scoringWeights = null;
+            if (organizationId) {
+                try {
+                    const aiSettingsRes = await axios.get(`/admins/ai-scoring-settings/${organizationId}`);
+                    const aiSettings = aiSettingsRes?.data?.data || aiSettingsRes?.data || null;
+                    scoringWeights = aiSettings?.resume?.weightage || null;
+                } catch (settingsErr) {
+                    console.warn('Failed to load AI scoring settings for streaming weighted score:', settingsErr?.response?.data?.message || settingsErr.message);
+                }
+            }
+            if (jobDescriptionText.length >= 20 && resumeText.length >= 50) {
+                const streamingRes = await gatewayApi.post('/resume-ats/calculate-score', {
+                    jobDescriptionText,
+                    resumeText,
+                    ...(scoringWeights ? { scoringWeights } : {})
+                });
+                categoryScores = streamingRes.data?.categoryScores || {};
+                overallScore = Number(streamingRes.data?.overallScore);
+            }
 
             const scoreRes = await axios.post('/position-candidates/finalize-resume-score', {
                 positionCandidateId,
@@ -709,17 +746,18 @@ const AddCandidate = () => {
                 positionName: formData.position_name || undefined,
                 candidateName: formData.candidate_name || undefined,
                 actorName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Admin',
-                overallScore,
-                categoryScores
+                overallScore: Number.isFinite(overallScore) ? overallScore : undefined,
+                categoryScores,
+                resumeText: resumeText || undefined,
             });
             const data = scoreRes.data?.data || {};
             recommendationStatus = data.recommendationStatus || 'INVITED';
             if (scoreRes.data.warning || data.warning) {
-                toast.error(scoreRes.data.warning || data.warning, { icon: '⚠️', duration: 6000 });
+                toast((scoreRes.data.warning || data.warning), { icon: '⚠️', duration: 6000 });
             }
         } catch (err) {
-            const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Resume scoring skipped';
-            toast.error(msg, { duration: 5000 });
+            const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Resume scoring is processing';
+            toast(`Candidate added. Resume score will update shortly: ${msg}`, { icon: '⏳', duration: 6000 });
             // Continue to step 3 – candidate is already linked; score can be retried later
         }
 
